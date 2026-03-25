@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "Bash(rustc:*)",
+      "Bash(winget:*)",
+      "Bash(export:*)",
+      "Read(//d//**)",
+      "Bash(npm create:*)",
+      "Bash(cd:*)",
+      "Bash(cargo check:*)",
+      "Bash(npm run:*)",
+      "Bash(cargo test:*)",
+      "Bash(git init:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

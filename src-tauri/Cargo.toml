@@ -1,0 +1,45 @@
+[package]
+name = "cura"
+version = "0.1.0"
+description = "Cura - Photo and Video Manager"
+authors = ["Cura Team"]
+edition = "2021"
+
+[lib]
+name = "cura_lib"
+crate-type = ["lib", "cdylib", "staticlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dev-dependencies]
+tempfile = "3"
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-shell = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full", "rt-multi-thread"] }
+tokio-util = "0.7"
+rayon = "1.10"
+walkdir = "2"
+md-5 = "0.10"
+sha2 = "0.10"
+image = "0.25"
+kamadak-exif = "0.5"
+chrono = { version = "0.4", features = ["serde"] }
+uuid = { version = "1", features = ["v4", "serde"] }
+thiserror = "1"
+anyhow = "1"
+tracing = "0.1"
+tracing-subscriber = "0.3"
+
+[profile.release]
+panic = "abort"
+codegen-units = 1
+lto = true
+opt-level = "s"
+strip = true
