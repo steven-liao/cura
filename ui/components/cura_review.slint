@@ -1,0 +1,493 @@
+// Cura Review Screen
+// Shows duplicate groups and allows handling
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+import { DuplicateGroupData } from "../models/cura_models.slint";
+import { ScrollView } from "std-widgets.slint";
+
+// Compact duplicate group card
+component DuplicateGroupCard inherits Rectangle {
+    in property <int> group-id;
+    in property <DuplicateGroupData> group-data;
+
+    callback select-for-delete(int);
+    callback select-for-move(int);
+    callback hovered-changed(int, bool);
+
+    property <int> file-count: group-data.files.length;
+    property <int> display-count: group-data.display-files.length;
+    property <int> hidden-count: file-count - display-count;
+
+    min-width: 220px;
+    max-width: 400px;
+    horizontal-stretch: 1;
+    height: 180px;
+    background: CuraTheme.background-secondary;
+    border-radius: 8px;
+
+    // Hover detection - covers the entire card
+    hover-touch := TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    // Only trigger hover for popup when hovering over the file list area (not buttons)
+    property <bool> should-show-popup-hover: hover-touch.has-hover && hidden-count > 0;
+
+    // Expose hover state via callback when it changes
+    property <bool> card-hovered: hover-touch.has-hover;
+
+    changed should-show-popup-hover => {
+        root.hovered-changed(root.group-id, self.should-show-popup-hover);
+    }
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 6px;
+
+        HorizontalLayout {
+            spacing: 8px;
+
+            Rectangle {
+                width: 70px;
+                height: 70px;
+                background: #1a2a3a;
+                border-radius: 4px;
+
+                Image {
+                    source: group-data.thumbnail;
+                    width: 70px;
+                    height: 70px;
+                    image-fit: contain;
+                }
+            }
+
+            VerticalLayout {
+                spacing: 4px;
+                horizontal-stretch: 1;
+
+                Rectangle {
+                    width: 45px;
+                    height: 16px;
+                    background: CuraTheme.success;
+                    border-radius: 3px;
+
+                    Text {
+                        text: "KEEP";
+                        color: white;
+                        font-size: 9px;
+                        font-weight: 700;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+
+                Text {
+                    text: group-data.best-file;
+                    font-size: 10px;
+                    color: CuraTheme.text;
+                    overflow: elide;
+                    vertical-stretch: 1;
+                }
+
+                Text {
+                    text: file-count + " files | " + group-data.save-size;
+                    font-size: 10px;
+                    color: CuraTheme.success;
+                }
+            }
+        }
+
+        Rectangle {
+            background: #1a2a3a;
+            border-radius: 4px;
+            vertical-stretch: 1;
+
+            VerticalLayout {
+                padding: 4px;
+                spacing: 1px;
+
+                for file[idx] in group-data.display-files:
+                    HorizontalLayout {
+                        spacing: 4px;
+
+                        Text {
+                            text: file == group-data.best-file ? "✓" : "✗";
+                            font-size: 9px;
+                            color: file == group-data.best-file ? CuraTheme.success : CuraTheme.error;
+                            width: 10px;
+                        }
+
+                        Text {
+                            text: file;
+                            font-size: 9px;
+                            color: file == group-data.best-file ? CuraTheme.text : CuraTheme.text-secondary;
+                            overflow: elide;
+                            horizontal-stretch: 1;
+                        }
+                    }
+
+                if root.hidden-count > 0:
+                    Rectangle {
+                        height: 14px;
+                        background: CuraTheme.primary;
+                        border-radius: 3px;
+
+                        Text {
+                            text: "+" + root.hidden-count + " more";
+                            color: white;
+                            font-size: 9px;
+                            font-weight: 600;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: 4px;
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 24px;
+                background: CuraTheme.error;
+                border-radius: 4px;
+
+                TouchArea {
+                    clicked => { root.select-for-delete(root.group-id); }
+                }
+
+                Text {
+                    text: "Delete";
+                    color: CuraTheme.text;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 24px;
+                background: CuraTheme.primary;
+                border-radius: 4px;
+
+                TouchArea {
+                    clicked => { root.select-for-move(root.group-id); }
+                }
+
+                Text {
+                    text: "Move";
+                    color: CuraTheme.text;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+}
+
+// Popup showing all duplicate files - rendered at top level to avoid clipping
+component DuplicatePopup inherits Rectangle {
+    in property <DuplicateGroupData> group-data;
+    in property <bool> show: false;
+    in property <int> group-id: -1;
+    in property <int> grid-cols: 1;
+    in property <length> container-width: 0px;
+    in property <length> container-height: 0px;
+
+    out property <bool> popup-is-hovered: popup-hover.has-hover;
+
+    property <int> file-count: group-data.files.length;
+
+    // Calculate card position based on grid layout
+    // Need to account for parent container offsets:
+    // - Outer VerticalLayout padding: 24px
+    // - Header height: 60px + 16px spacing = 76px
+    // - GridLayout padding: 16px
+    // - Card height: 180px + 12px spacing
+    property <length> grid-offset-y: 180px;
+
+    property <int> card-row: group-id / grid-cols;
+    property <int> card-col: Math.mod(group-id, grid-cols);
+
+    // Estimate card width (use average since it stretches)
+    property <length> estimated-card-width: Math.max(220px, (container-width - 32px - (grid-cols - 1) * 12px) / grid-cols);
+
+    // Calculate popup position near the card
+    property <length> card-x: 16px + card-col * (estimated-card-width + 12px);
+    property <length> card-y: grid-offset-y + card-row * (180px + 12px);
+
+    // Show popup to the right of card, or to the left if near right edge
+    property <bool> show-on-left: card-col >= grid-cols - 1;
+
+    // Clamp popup position to stay within screen bounds
+    // Position overlapping the card by 10px to ensure smooth hover transition
+    property <length> popup-x: show-on-left ? card-x - 200px + 10px : card-x + estimated-card-width - 10px;
+    // Align popup top with card top
+    property <length> popup-y: card-y;
+
+    x: Math.max(4px, Math.min(popup-x, container-width - 210px));
+    y: Math.max(80px, Math.min(popup-y, container-height - 160px));
+    width: 200px;
+    height: 150px;
+
+    visible: show && file-count > 0;
+
+    background: CuraTheme.background;
+    border-radius: 3px;
+    border-width: 1px;
+    border-color: CuraTheme.accent;
+    drop-shadow-blur: 4px;
+    drop-shadow-color: #00000080;
+
+    // Track hover over popup itself
+    popup-hover := TouchArea {
+        width: 100%;
+        height: 100%;
+    }
+
+    VerticalLayout {
+        padding: 6px;
+        spacing: 4px;
+        alignment: start;
+
+        Text {
+            text: root.file-count + " files";
+            font-size: 11px;
+            font-weight: 700;
+            color: CuraTheme.accent;
+            height: 14px;
+        }
+
+        Rectangle {
+            background: CuraTheme.background-secondary;
+            border-radius: 4px;
+            height: 120px;
+
+            ScrollView {
+                width: parent.width;
+                height: parent.height;
+
+                VerticalLayout {
+                    padding: 4px;
+                    spacing: 1px;
+                    alignment: start;
+
+                    for file[idx] in root.group-data.files:
+                        HorizontalLayout {
+                            spacing: 4px;
+                            height: 16px;
+
+                            Text {
+                                text: file == root.group-data.best-file ? "✓" : "✗";
+                                font-size: 9px;
+                                color: file == root.group-data.best-file ? CuraTheme.success : CuraTheme.error;
+                                width: 12px;
+                                vertical-alignment: center;
+                            }
+
+                            Text {
+                                text: file;
+                                font-size: 9px;
+                                color: file == root.group-data.best-file ? CuraTheme.text : CuraTheme.text-secondary;
+                                overflow: elide;
+                                horizontal-stretch: 1;
+                                vertical-alignment: center;
+                            }
+                        }
+                }
+            }
+        }
+    }
+}
+
+// Main review component
+export component CuraReview inherits Rectangle {
+    in property <int> total-groups;
+    in property <string> total-save;
+    in property <[DuplicateGroupData]> duplicate-groups;
+    in property <bool> can-undo: false;
+
+    callback handle-duplicates-clicked([int], string, string);
+    callback undo-clicked();
+
+    property <int> grid-cols: Math.max(1, Math.min(6, round((self.width / 1px - 80) / 232)));
+    property <int> hovered-card-id: -1;
+    property <DuplicateGroupData> popup-data: {
+        files: [],
+        display-files: [],
+        best-file: "",
+        save-size: "",
+        is-visual: false,
+        similarity-score: 0,
+        thumbnail: @image-url("")
+    };
+
+    // Popup will expose its hover state via is-hovered property
+
+    background: CuraTheme.background;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+
+        HorizontalLayout {
+            spacing: 16px;
+
+            Text {
+                text: "cura";
+                font-size: 24px;
+                font-weight: 700;
+                color: CuraTheme.accent;
+            }
+
+            Rectangle {
+                width: 32px;
+                height: 32px;
+                border-radius: 16px;
+                background: CuraTheme.background-secondary;
+
+                Text {
+                    text: "?";
+                    color: CuraTheme.text-secondary;
+                    font-size: 16px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Rectangle {
+            height: 60px;
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            HorizontalLayout {
+                padding: 16px;
+                spacing: 24px;
+
+                Text {
+                    text: "Found " + total-groups + " duplicate groups";
+                    color: CuraTheme.text;
+                    font-size: 16px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Saves " + total-save;
+                    color: CuraTheme.success;
+                    font-size: 16px;
+                    font-weight: 700;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        Rectangle {
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            ScrollView {
+                width: 100%;
+                height: 100%;
+
+                GridLayout {
+                    padding: 16px;
+                    spacing: 12px;
+
+                    for group-data[idx] in duplicate-groups:
+                        DuplicateGroupCard {
+                            row: idx / root.grid-cols;
+                            col: Math.mod(idx, root.grid-cols);
+                            group-id: idx;
+                            group-data: group-data;
+                            select-for-delete(id) => {
+                                root.handle-duplicates-clicked([id], "delete", "");
+                            }
+                            select-for-move(id) => {
+                                root.handle-duplicates-clicked([id], "move", "");
+                            }
+                            hovered-changed(id, is-hover) => {
+                                if is-hover {
+                                    root.hovered-card-id = id;
+                                    root.popup-data = group-data;
+                                } else if root.hovered-card-id == id {
+                                    root.hovered-card-id = -1;
+                                }
+                            }
+                        }
+                }
+            }
+
+            if duplicate-groups.length == 0:
+                Text {
+                    text: "No duplicates found";
+                    color: CuraTheme.text-secondary;
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+        }
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            if can-undo:
+                Rectangle {
+                    width: 140px;
+                    height: 40px;
+                    background: CuraTheme.primary;
+                    border-radius: 8px;
+
+                    Text {
+                        text: "Undo Last Action";
+                        color: CuraTheme.text;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        width: 100%;
+                        height: 100%;
+                        clicked => { root.undo-clicked(); }
+                    }
+                }
+
+            Rectangle {
+                width: 120px;
+                height: 40px;
+                background: CuraTheme.background-secondary;
+                border-radius: 8px;
+
+                Text {
+                    text: "Export Report";
+                    color: CuraTheme.text-secondary;
+                    font-size: 14px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    // Popup rendered at top level - AFTER GridLayout so it appears on top
+    // Only show if group has more than 3 files (hidden-count > 0)
+    Rectangle {
+        width: root.width;
+        height: root.height;
+        background: transparent;
+
+        popup := DuplicatePopup {
+            group-data: root.popup-data;
+            group-id: root.hovered-card-id;
+            grid-cols: root.grid-cols;
+            container-width: root.width;
+            container-height: root.height;
+            show: root.popup-data.files.length > 3 && (root.hovered-card-id >= 0 || self.popup-is-hovered);
+        }
+    }
+}

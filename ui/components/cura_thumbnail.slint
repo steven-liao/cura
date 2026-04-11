@@ -1,0 +1,107 @@
+// Cura Thumbnail Component
+// Displays image thumbnails with selection state
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+
+export component CuraThumbnail inherits Rectangle {
+    in property <image> source;
+    in property <string> file-name;
+    in property <string> file-size;
+    in property <bool> selected;
+    in property <bool> is-best;
+
+    callback clicked();
+    callback selected-changed(bool);
+
+    width: 120px;
+    height: 150px;
+    background: CuraTheme.background-secondary;
+    border-radius: 8px;
+
+    // Selection indicator
+    Rectangle {
+        width: 20px;
+        height: 20px;
+        x: 8px;
+        y: 8px;
+        border-radius: 10px;
+        background: selected ? CuraTheme.accent : CuraTheme.background;
+        border-width: 2px;
+        border-color: CuraTheme.accent;
+
+        if selected:
+            Text {
+                text: "+";
+                color: CuraTheme.text;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+    }
+
+    // Best indicator
+    if is-best:
+        Rectangle {
+            width: 40px;
+            height: 20px;
+            x: parent.width - 48px;
+            y: 8px;
+            border-radius: 4px;
+            background: CuraTheme.success;
+
+            Text {
+                text: "BEST";
+                color: CuraTheme.text;
+                font-size: 10px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+
+    // Image placeholder
+    Rectangle {
+        width: 100px;
+        height: 100px;
+        x: 10px;
+        y: 30px;
+        border-radius: 4px;
+        background: CuraTheme.background;
+
+        // Placeholder for actual image
+        Text {
+            text: "[IMG]";
+            color: CuraTheme.text-secondary;
+            font-size: 16px;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    // File info
+    VerticalLayout {
+        x: 10px;
+        y: 135px;
+        width: 100px;
+        spacing: 2px;
+
+        Text {
+            text: file-name;
+            color: CuraTheme.text;
+            font-size: 12px;
+            overflow: elide;
+        }
+
+        Text {
+            text: file-size;
+            color: CuraTheme.text-secondary;
+            font-size: 10px;
+        }
+    }
+
+    TouchArea {
+        clicked => {
+            root.selected-changed(!root.selected);
+        }
+    }
+}

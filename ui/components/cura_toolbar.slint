@@ -1,0 +1,183 @@
+// Cura Toolbar Component
+// Action toolbar for duplicate handling
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+
+export component CuraToolbar inherits Rectangle {
+    in property <bool> can-undo;
+    in property <string> move-target-folder;
+
+    callback delete-selected();
+    callback move-selected();
+    callback browse-target-folder();
+    callback undo-last();
+    callback export-report();
+
+    
+    height: 60px;
+    background: CuraTheme.background-secondary;
+    border-radius: 8px;
+
+    HorizontalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        // Handle duplicates section
+        Text {
+            text: "Handle Selected:";
+            color: CuraTheme.text-secondary;
+            font-size: 14px;
+            vertical-alignment: center;
+        }
+
+        // Delete button
+        Rectangle {
+            width: 80px;
+            height: 40px;
+            background: CuraTheme.error;
+            border-radius: 6px;
+
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 4px;
+
+                Text {
+                    text: "🗑";
+                    color: CuraTheme.text;
+                    font-size: 14px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Delete";
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+            }
+
+            TouchArea {
+                clicked => { root.delete-selected(); }
+            }
+        }
+
+        // Move button
+        Rectangle {
+            width: 120px;
+            height: 40px;
+            background: CuraTheme.primary;
+            border-radius: 6px;
+
+            HorizontalLayout {
+                padding: 8px;
+                spacing: 4px;
+
+                Text {
+                    text: "📁";
+                    color: CuraTheme.text;
+                    font-size: 14px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: "Move to folder...";
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+            }
+
+            TouchArea {
+                clicked => { root.move-selected(); }
+            }
+        }
+
+        // Move target folder display
+        if move-target-folder != "":
+            HorizontalLayout {
+                spacing: 8px;
+
+                Text {
+                    text: "Target:";
+                    color: CuraTheme.text-secondary;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+
+                Text {
+                    text: move-target-folder;
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    width: 60px;
+                    height: 24px;
+                    background: CuraTheme.background;
+                    border-radius: 4px;
+
+                    Text {
+                        text: "Browse...";
+                        color: CuraTheme.text-secondary;
+                        font-size: 10px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.browse-target-folder(); }
+                    }
+                }
+            }
+
+        // Separator
+        Rectangle {
+            width: 1px;
+            height: 40px;
+            background: CuraTheme.background;
+        }
+
+        // Export report
+        Rectangle {
+            width: 100px;
+            height: 40px;
+            background: CuraTheme.background;
+            border-radius: 6px;
+
+            Text {
+                text: "Export Report";
+                color: CuraTheme.text-secondary;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.export-report(); }
+            }
+        }
+
+        // Undo button
+        if can-undo:
+            Rectangle {
+                width: 120px;
+                height: 40px;
+                background: CuraTheme.warning;
+                border-radius: 6px;
+
+                Text {
+                    text: "Undo Last Action";
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => { root.undo-last(); }
+                }
+            }
+    }
+}

@@ -1,0 +1,53 @@
+# Build directories
+build/
+build-review/
+cmake-build-*/
+out/
+
+# IDE files
+.vscode/
+.idea/
+*.code-workspace
+*.suo
+*.user
+*.sln.docstates
+
+# Compiled files
+*.obj
+*.o
+*.exe
+*.dll
+*.lib
+*.a
+*.so
+*.dylib
+
+# CMake cache
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+*.cmake
+
+# Slint generated files
+*.slint.hpp
+*.slint.cpp
+
+# Test output
+Testing/
+CTestTestfile.cmake
+
+# OS files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# Package managers
+vcpkg_installed/
+
+# Debug/Release folders
+Debug/
+Release/
+MinSizeRel/
+RelWithDebInfo/

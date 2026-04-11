@@ -1,0 +1,137 @@
+// Cura Folder Picker Component
+// Folder selection dialog
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+
+export component CuraFolderPicker inherits Rectangle {
+    in property <string> current-path;
+    in property <[string]> recent-folders;
+
+    callback folder-selected(string);
+    callback cancel();
+
+    
+    
+    background: #000000aa;
+
+    Rectangle {
+        width: 400px;
+        height: 300px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: CuraTheme.background-secondary;
+        border-radius: 12px;
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // Header
+            Text {
+                text: "Select Folder";
+                font-size: 18px;
+                font-weight: 700;
+                color: CuraTheme.text;
+            }
+
+            // Current path display
+            Rectangle {
+                
+                height: 40px;
+                background: CuraTheme.background;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 12px;
+
+                    Text {
+                        text: current-path == "" ? "No folder selected" : current-path;
+                        color: current-path == "" ? CuraTheme.text-secondary : CuraTheme.text;
+                        font-size: 14px;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Recent folders
+            if recent-folders.length > 0:
+                VerticalLayout {
+                    spacing: 8px;
+
+                    Text {
+                        text: "Recent folders:";
+                        font-size: 12px;
+                        color: CuraTheme.text-secondary;
+                    }
+
+                    for folder in recent-folders:
+                        Rectangle {
+                            
+                            height: 32px;
+                            background: CuraTheme.background;
+                            border-radius: 4px;
+
+                            Text {
+                                text: folder;
+                                color: CuraTheme.text;
+                                font-size: 12px;
+                                overflow: elide;
+                                vertical-alignment: center;
+                                x: 12px;
+                            }
+
+                            TouchArea {
+                                clicked => { root.folder-selected(folder); }
+                            }
+                        }
+                }
+
+            // Buttons
+            HorizontalLayout {
+                spacing: 12px;
+
+                // Browse button
+                Rectangle {
+                    width: 120px;
+                    height: 40px;
+                    background: CuraTheme.accent;
+                    border-radius: 8px;
+
+                    Text {
+                        text: "Browse...";
+                        color: CuraTheme.text;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        // This would trigger native file dialog via C++
+                        clicked => { root.folder-selected(""); }
+                    }
+                }
+
+                // Cancel button
+                Rectangle {
+                    width: 80px;
+                    height: 40px;
+                    background: CuraTheme.background;
+                    border-radius: 8px;
+
+                    Text {
+                        text: "Cancel";
+                        color: CuraTheme.text-secondary;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.cancel(); }
+                    }
+                }
+            }
+        }
+    }
+}

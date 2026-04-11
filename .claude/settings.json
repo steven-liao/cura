@@ -1,0 +1,46 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(powershell.exe -Command \"& { Get-Content 'C:\\\\\\\\Program Files\\\\\\\\Slint-cpp 1.15.1\\\\\\\\lib\\\\\\\\cmake\\\\\\\\Slint\\\\\\\\SlintMacro.cmake' }\")",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release }')",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 100 }')",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 80 }')",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 60 }')",
+      "Bash(powershell.exe -Command '& { Get-ChildItem -Path '\\\\''d:\\\\cura\\\\ui'\\\\'' -Recurse -Filter '\\\\''*.slint'\\\\'' | ForEach-Object { \\(Get-Content $_.FullName\\) -replace '\\\\''font-weight: bold;'\\\\'', '\\\\''font-weight: 700;'\\\\'' | Set-Content $_.FullName } }')",
+      "Bash(powershell.exe -Command \"& { \\(Get-Content 'd:\\\\\\\\cura\\\\\\\\ui\\\\\\\\components\\\\\\\\cura_review.slint'\\) -replace 'len\\\\\\\\\\(', 'array-length\\(' | Set-Content 'd:\\\\\\\\cura\\\\\\\\ui\\\\\\\\components\\\\\\\\cura_review.slint' }\")",
+      "Bash(powershell.exe -Command \"& { \\(Get-Content 'd:\\\\\\\\cura\\\\\\\\ui\\\\\\\\components\\\\\\\\cura_review.slint'\\) -replace 'array-length\\\\\\\\\\(group-data.files\\\\\\\\\\) - 1 \\\\\\\\+ \\\\\" duplicates\\\\\"', '\\\\\"duplicates\\\\\"' -replace 'if array-length\\\\\\\\\\(duplicate-groups\\\\\\\\\\) > 0:', 'if duplicate-groups.length > 0:' -replace 'if array-length\\\\\\\\\\(duplicate-groups\\\\\\\\\\) == 0:', 'if duplicate-groups.length == 0:' | Set-Content 'd:\\\\\\\\cura\\\\\\\\ui\\\\\\\\components\\\\\\\\cura_review.slint' }\")",
+      "Bash(powershell.exe -Command '& { Get-ChildItem -Path '\\\\''d:\\\\cura\\\\ui'\\\\'' -Recurse -Filter '\\\\''*.slint'\\\\'' | ForEach-Object { \\(Get-Content $_.FullName\\) -replace '\\\\''width: 100%;'\\\\'', '\\\\'''\\\\'' -replace '\\\\''height: 100%;'\\\\'', '\\\\'''\\\\'' | Set-Content $_.FullName } }')",
+      "Bash(powershell.exe -Command '& { Get-ChildItem -Path '\\\\''d:\\\\cura\\\\ui\\\\components'\\\\'' -Filter '\\\\''*.slint'\\\\'' | ForEach-Object { \\(Get-Content $_.FullName\\) -replace '\\\\''from \"../cura_main.slint\"'\\\\'', '\\\\''from \"../themes/cura_theme.slint\"'\\\\'' | Set-Content $_.FullName } }')",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake -B build '\\\\''-DCMAKE_PREFIX_PATH=C:/Program Files/Slint-cpp 1.15.1'\\\\'' && cmake --build build --config Release 2>&1 | Select-Object -Last 60 }')",
+      "Bash(ctest --output-on-failure -C Release)",
+      "Bash(powershell.exe -Command \"& { cd d:\\\\\\\\cura\\\\\\\\build; 'C:\\\\\\\\Program Files\\\\\\\\CMake\\\\\\\\bin\\\\\\\\ctest.exe' --output-on-failure -C Release }\")",
+      "Bash(powershell.exe -Command \"& 'C:\\\\\\\\Program Files\\\\\\\\CMake\\\\\\\\bin\\\\\\\\ctest.exe' --test-dir d:\\\\\\\\cura\\\\\\\\build --output-on-failure -C Release\")",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 40 }')",
+      "Bash(cp \"C:/Program Files/Slint-cpp 1.15.1/lib/slint_cpp.dll\" d:/cura/build/Release/)",
+      "Bash(d:/cura/build/Release/cura.exe)",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 30 }')",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 20 }')",
+      "Bash(powershell.exe -Command \"Stop-Process -Name cura -ErrorAction SilentlyContinue\")",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake --build build --config Release 2>&1 | Select-Object -Last 15 }')",
+      "Bash(cmake --build build --config Release)",
+      "Bash(cmd.exe /c \"cmake --build build --config Release\")",
+      "Bash(\"C:/Program Files/CMake/bin/cmake.exe\" --build build --config Release)",
+      "Bash(taskkill /F /IM cura.exe)",
+      "Bash(cmd.exe /c \"taskkill /F /IM cura.exe\")",
+      "Bash(cmd.exe /c \"tasklist | findstr cura\")",
+      "Bash(build/Release/cura.exe)",
+      "Read(//c/Program Files/Slint-cpp 1.15.1/include/**)",
+      "Bash(./build/Release/cura.exe)",
+      "Bash(echo \"App started with PID: $!\")",
+      "Bash(taskkill /f /im cura.exe)",
+      "Bash(tasklist)",
+      "Bash(taskkill /f /pid 2304)",
+      "Bash(taskkill //f //pid 2304)",
+      "Bash(taskkill -f -pid 2304)",
+      "Bash(taskkill //f //im cura.exe)"
+    ],
+    "additionalDirectories": [
+      "C:\\Program Files\\Slint-cpp 1.15.1\\lib"
+    ]
+  }
+}

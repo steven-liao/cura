@@ -1,0 +1,267 @@
+// Cura Setup Screen
+// Folder selection and scan options
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+
+// Folder list item
+component FolderItem inherits Rectangle {
+    in property <string> path;
+    callback remove-clicked();
+
+    
+    height: 40px;
+    background: CuraTheme.background-secondary;
+    border-radius: 4px;
+
+    HorizontalLayout {
+        padding: 8px;
+
+        Text {
+            text: path;
+            color: CuraTheme.text;
+            font-size: 14px;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+
+        Rectangle {
+            width: 24px;
+            height: 24px;
+            border-radius: 12px;
+            background: CuraTheme.error;
+
+            Text {
+                text: "X";
+                color: CuraTheme.text;
+                font-size: 14px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.remove-clicked(); }
+            }
+        }
+    }
+}
+
+// Main setup component
+export component CuraSetup inherits Rectangle {
+    in property <[string]> selected-folders;
+    in property <bool> enable-visual;
+    in property <float> similarity-threshold;
+
+    callback add-folder-clicked();
+    callback remove-folder-clicked(string);
+    callback start-clicked();
+    callback toggle-visual();
+    callback set-similarity-threshold(float);
+
+    background: CuraTheme.background;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+
+        // Header
+        Text {
+            text: "cura";
+            font-size: 32px;
+            font-weight: 700;
+            color: CuraTheme.accent;
+        }
+
+        Text {
+            text: "Photo Deduplication Tool";
+            font-size: 16px;
+            color: CuraTheme.text-secondary;
+        }
+
+        // Folder selection
+        Rectangle {
+            height: 200px;
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 8px;
+
+                Text {
+                    text: "Select folders to scan:";
+                    font-size: 14px;
+                    color: CuraTheme.text;
+                }
+
+                // Folder list
+                for folder in selected-folders:
+                    FolderItem {
+                        path: folder;
+                        remove-clicked => { root.remove-folder-clicked(folder); }
+                    }
+
+                // Add folder button
+                Rectangle {
+                    height: 40px;
+                    background: CuraTheme.primary;
+                    border-radius: 4px;
+
+                    Text {
+                        text: "+ Add Folder";
+                        color: CuraTheme.text;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.add-folder-clicked(); }
+                    }
+                }
+            }
+        }
+
+        // Scan options
+        Rectangle {
+            
+            height: 120px;
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            VerticalLayout {
+                padding: 16px;
+                spacing: 12px;
+
+                // Hash detection (always on)
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 4px;
+                        background: CuraTheme.success;
+
+                        Text {
+                            text: "+";
+                            color: CuraTheme.text;
+                            font-size: 14px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Text {
+                        text: "Hash-based detection (exact duplicates)";
+                        color: CuraTheme.text;
+                        font-size: 14px;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Visual similarity (optional)
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    Rectangle {
+                        width: 20px;
+                        height: 20px;
+                        border-radius: 4px;
+                        background: enable-visual ? CuraTheme.accent : CuraTheme.background-secondary;
+                        border-width: 2px;
+                        border-color: CuraTheme.accent;
+
+                        if enable-visual:
+                            Text {
+                                text: "+";
+                                color: CuraTheme.text;
+                                font-size: 14px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                        TouchArea {
+                            clicked => { root.toggle-visual(); }
+                        }
+                    }
+
+                    Text {
+                        text: "Visual similarity detection (similar images)";
+                        color: CuraTheme.text;
+                        font-size: 14px;
+                        vertical-alignment: center;
+                    }
+                }
+
+                // Similarity threshold (if visual enabled)
+                if enable-visual:
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: "Similarity threshold:";
+                            color: CuraTheme.text-secondary;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+
+                        // Simple clickable progress bar for threshold
+                        Rectangle {
+                            width: 120px;
+                            height: 20px;
+                            background: CuraTheme.background;
+                            border-radius: 4px;
+
+                            Rectangle {
+                                width: parent.width * similarity-threshold;
+                                
+                                background: CuraTheme.accent;
+                                border-radius: 4px;
+                            }
+
+                            TouchArea {
+                                clicked => {
+                                    // Toggle between 80%, 90%, 100%
+                                    if similarity-threshold < 0.85 {
+                                        root.set-similarity-threshold(0.9);
+                                    } else if similarity-threshold < 0.95 {
+                                        root.set-similarity-threshold(1.0);
+                                    } else {
+                                        root.set-similarity-threshold(0.8);
+                                    }
+                                }
+                            }
+                        }
+
+                        Text {
+                            text: round(similarity-threshold * 100) + "%";
+                            color: CuraTheme.text;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+                    }
+            }
+        }
+
+        // Start button
+        Rectangle {
+            
+            height: 50px;
+            background: CuraTheme.accent;
+            border-radius: 8px;
+
+            Text {
+                text: "Start Scanning";
+                color: CuraTheme.text;
+                font-size: 16px;
+                font-weight: 700;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.start-clicked(); }
+            }
+        }
+    }
+}

@@ -1,0 +1,106 @@
+// Cura Preview Modal
+// Full image preview overlay
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+
+export component CuraPreview inherits Rectangle {
+    in property <image> source;
+    in property <string> file-name;
+    in property <string> file-path;
+    in property <int> img-width;
+    in property <int> img-height;
+    in property <string> file-size;
+
+    callback close();
+
+    background: #000000aa;
+
+    Rectangle {
+        width: 600px;
+        height: 500px;
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        background: CuraTheme.background-secondary;
+        border-radius: 12px;
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 16px;
+
+            // Header with close button
+            HorizontalLayout {
+                Text {
+                    text: file-name;
+                    font-size: 16px;
+                    color: CuraTheme.text;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+
+                Rectangle {
+                    width: 32px;
+                    height: 32px;
+                    border-radius: 16px;
+                    background: CuraTheme.error;
+
+                    Text {
+                        text: "X";
+                        color: CuraTheme.text;
+                        font-size: 18px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.close(); }
+                    }
+                }
+            }
+
+            // Image preview area
+            Rectangle {
+                height: 350px;
+                background: CuraTheme.background;
+                border-radius: 8px;
+
+                // Placeholder for actual image
+                Text {
+                    text: "[IMAGE]";
+                    color: CuraTheme.text-secondary;
+                    font-size: 32px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            // File info
+            HorizontalLayout {
+                spacing: 24px;
+
+                Text {
+                    text: "Size: " + file-size;
+                    color: CuraTheme.text-secondary;
+                    font-size: 12px;
+                }
+
+                Text {
+                    text: "Dimensions: " + img-width + " x " + img-height;
+                    color: CuraTheme.text-secondary;
+                    font-size: 12px;
+                }
+
+                Text {
+                    text: "Path: " + file-path;
+                    color: CuraTheme.text-secondary;
+                    font-size: 12px;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+
+    // Click outside to close
+    TouchArea {
+        clicked => { root.close(); }
+    }
+}

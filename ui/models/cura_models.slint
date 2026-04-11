@@ -1,0 +1,60 @@
+// Cura Data Models
+// Shared data structures for UI
+
+// Duplicate group data model for UI binding
+export struct DuplicateGroupData {
+    files: [string],
+    display-files: [string], // Truncated list for card display (max 3)
+    best-file: string,
+    save-size: string,
+    is-visual: bool,
+    similarity-score: int,
+    thumbnail: image,
+}
+
+// File info model
+export struct FileInfo {
+    file-path: string,
+    file-name: string,
+    file-size: string,
+    width: int,
+    height: int,
+    is-selected: bool,
+    is-best: bool,
+}
+
+// Duplicate group model
+export struct DuplicateGroup {
+    group-id: string,
+    files: [FileInfo],
+    best-file: string,
+    total-size: string,
+    save-size: string,
+    is-visual-duplicate: bool,
+    similarity-score: int,
+}
+
+// Scan progress model
+export struct ScanProgress {
+    files-scanned: int,
+    total-files: int,
+    current-file: string,
+    speed: string, // e.g., "847 files/sec"
+    eta: string,   // e.g., "3s"
+}
+
+// Settings model
+export struct CuraSettings {
+    enable-visual-similarity: bool,
+    similarity-threshold: float,
+    move-target-folder: string,
+    default-action: string, // "delete" or "move"
+}
+
+// Operation result model
+export struct OperationResult {
+    success: bool,
+    affected-files: [string],
+    action: string,
+    error-message: string,
+}

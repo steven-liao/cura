@@ -1,0 +1,82 @@
+// Cura Main Window
+// This is the main entry point for the Slint UI
+
+import { CuraTheme } from "themes/cura_theme.slint";
+import { DuplicateGroupData } from "models/cura_models.slint";
+import { CuraSetup } from "components/cura_setup.slint";
+import { CuraProgress } from "components/cura_progress.slint";
+import { CuraReview } from "components/cura_review.slint";
+
+// Main application window
+export component CuraMainWindow inherits Window {
+    title: "Cura - Photo Deduplication";
+    preferred-width: 900px;
+    preferred-height: 700px;
+    background: CuraTheme.background;
+
+    // Current view state
+    in-out property <string> current-view: "setup"; // "setup", "progress", "review"
+
+    // Shared state
+    in-out property <[string]> selected-folders: [];
+    in-out property <bool> enable-visual-similarity: false;
+    in-out property <float> similarity-threshold: 0.9;
+    in-out property <float> scan-progress: 0.0;
+    in-out property <int> files-scanned: 0;
+    in-out property <int> total-files: 0;
+
+    // Review state
+    in-out property <int> total-groups: 0;
+    in-out property <string> total-save: "0 B";
+    in-out property <[DuplicateGroupData]> duplicate-groups: [];
+    in-out property <bool> can-undo: false;
+
+    // Callbacks to C++
+    callback add-folder();
+    callback remove-folder(string);
+    callback start-scan();
+    callback cancel-scan();
+    callback handle-duplicates([int], string, string);
+    callback undo-last();
+
+    // View container
+    Rectangle {
+        
+        
+
+        if current-view == "setup":
+            CuraSetup {
+                selected-folders: root.selected-folders;
+                enable-visual: root.enable-visual-similarity;
+                similarity-threshold: root.similarity-threshold;
+
+                add-folder-clicked => { root.add-folder(); }
+                remove-folder-clicked(folder) => { root.remove-folder(folder); }
+                start-clicked => { root.start-scan(); }
+                toggle-visual => { root.enable-visual-similarity = !root.enable-visual-similarity; }
+                set-similarity-threshold(value) => { root.similarity-threshold = value; }
+            }
+
+        if current-view == "progress":
+            CuraProgress {
+                progress: root.scan-progress;
+                files-scanned: root.files-scanned;
+                total-files: root.total-files;
+
+                cancel-clicked => { root.cancel-scan(); }
+            }
+
+        if current-view == "review":
+            CuraReview {
+                total-groups: root.total-groups;
+                total-save: root.total-save;
+                duplicate-groups: root.duplicate-groups;
+                can-undo: root.can-undo;
+
+                handle-duplicates-clicked(ids, action, target) => {
+                    root.handle-duplicates(ids, action, target);
+                }
+                undo-clicked => { root.undo-last(); }
+            }
+    }
+}

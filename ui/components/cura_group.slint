@@ -1,0 +1,133 @@
+// Cura Group Component
+// Displays a group of duplicate images
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+import { CuraThumbnail } from "cura_thumbnail.slint";
+
+export component CuraGroup inherits Rectangle {
+    in property <string> group-id;
+    in property <int> duplicate-count;
+    in property <string> save-size;
+    in property <string> best-file;
+    in property <bool> is-visual-duplicate;
+    in property <int> similarity-score;
+
+    callback keep-best-clicked();
+    callback delete-selected-clicked();
+    callback move-selected-clicked();
+
+    
+    height: 180px;
+    background: CuraTheme.background-secondary;
+    border-radius: 8px;
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 12px;
+
+        // Group header
+        HorizontalLayout {
+            spacing: 12px;
+
+            Text {
+                text: "📁";
+                font-size: 16px;
+                color: CuraTheme.text;
+            }
+
+            Text {
+                text: "Group " + group-id;
+                font-size: 14px;
+                font-weight: 700;
+                color: CuraTheme.text;
+            }
+
+            Text {
+                text: duplicate-count + " duplicates";
+                font-size: 12px;
+                color: CuraTheme.text-secondary;
+            }
+
+            Text {
+                text: "Save " + save-size;
+                font-size: 12px;
+                color: CuraTheme.success;
+            }
+        }
+
+        // Visual similarity indicator
+        if is-visual-duplicate:
+            HorizontalLayout {
+                spacing: 8px;
+
+                Rectangle {
+                    width: 12px;
+                    height: 12px;
+                    border-radius: 6px;
+                    background: CuraTheme.warning;
+                }
+
+                Text {
+                    text: "Visual similarity: " + similarity-score + "%";
+                    font-size: 12px;
+                    color: CuraTheme.warning;
+                }
+            }
+
+        // Thumbnail row (placeholder)
+        HorizontalLayout {
+            spacing: 8px;
+
+            // Placeholder thumbnails
+            for i in duplicate-count:
+                CuraThumbnail {
+                    file-name: "IMG_" + i + ".jpg";
+                    file-size: "5.2 MB";
+                    selected: i == 0;
+                    is-best: i == 0;
+                }
+        }
+
+        // Best recommendation
+        HorizontalLayout {
+            spacing: 8px;
+
+            Text {
+                text: "💡";
+                color: CuraTheme.text-secondary;
+                font-size: 12px;
+            }
+
+            Text {
+                text: "Best: " + best-file + " (earliest, highest resolution)";
+                color: CuraTheme.text-secondary;
+                font-size: 12px;
+                overflow: elide;
+            }
+        }
+
+        // Action buttons
+        HorizontalLayout {
+            spacing: 8px;
+
+            Rectangle {
+                width: 100px;
+                height: 32px;
+                background: CuraTheme.success;
+                border-radius: 4px;
+
+                Text {
+                    text: "Keep Best";
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => { root.keep-best-clicked(); }
+                }
+            }
+        }
+    }
+}

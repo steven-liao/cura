@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl -L -o d:/cura/third_party/stb_image_resize2.h https://raw.githubusercontent.com/nothings/stb/master/stb_image_resize2.h)",
+      "Bash(cmake -B build -G \"Visual Studio 17 2022\")",
+      "Bash(where cmake:*)",
+      "Bash(cmake -B build)",
+      "Bash(winget --version)",
+      "Bash(choco --version)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/CMake/bin:$HOME/.cargo/bin:/c/Users/$USER/.cargo/bin\")",
+      "Bash(rm -rf d:/cura/build)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/CMake/bin:/c/Users/eh_li/.cargo/bin\")",
+      "Bash(cmake -B build -DRust_COMPILER=\"C:/Users/eh_li/.cargo/bin/rustc.exe\")",
+      "Bash(cmd.exe /c \"set PATH=%PATH%;C:\\\\\\\\Users\\\\\\\\eh_li\\\\\\\\.cargo\\\\\\\\bin;C:\\\\\\\\Program Files\\\\\\\\CMake\\\\\\\\bin && cd d:\\\\\\\\cura && cmake -B build\")",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Users\\\\eh_li\\\\.cargo\\\\bin;C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake -B build }')",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Users\\\\eh_li\\\\.cargo\\\\bin'\\\\''; rustc --version }')",
+      "Bash(powershell.exe -Command \"& { Invoke-WebRequest -Uri 'https://github.com/slint-ui/slint/releases/download/v1.5.0/Slint-cpp-1.5.0-win64-MSVC.exe' -OutFile 'd:\\\\\\\\cura\\\\\\\\third_party\\\\\\\\slint-setup.exe' }\")",
+      "Bash(curl -L -o d:/cura/third_party/slint-setup.exe \"https://github.com/slint-ui/slint/releases/download/v1.5.0/Slint-cpp-1.5.0-win64-MSVC.exe\")",
+      "Bash(powershell.exe -Command \"& { Start-Process -FilePath 'd:\\\\\\\\cura\\\\\\\\third_party\\\\\\\\slint-installer.exe' -ArgumentList '/S' -Wait -NoNewWindow }\")",
+      "Bash(powershell.exe -Command \"& { Get-ChildItem -Path 'C:\\\\\\\\Program Files \\(x86\\)\\\\\\\\Slint-cpp 1.15.1' -Recurse | Select-Object FullName | Format-Table -AutoSize }\")",
+      "Bash(powershell.exe -Command \"& { Get-ChildItem -Path 'C:\\\\\\\\Program Files \\(x86\\)\\\\\\\\Slint-cpp 1.15.1' }\")",
+      "Bash(powershell.exe -Command \"& { Get-ChildItem -Path 'C:\\\\\\\\Program Files*' -Filter 'Slint*' -Directory -ErrorAction SilentlyContinue | Select-Object FullName }\")",
+      "Bash(powershell.exe -Command \"& { Get-ChildItem -Path 'C:\\\\\\\\' -Filter 'Slint*' -Directory -Recurse -Depth 3 -ErrorAction SilentlyContinue | Select-Object FullName }\")",
+      "Bash(powershell.exe -Command \"& { Get-ChildItem -Path 'C:\\\\\\\\Program Files\\\\\\\\Slint-cpp 1.15.1' -Recurse | Select-Object FullName }\")",
+      "Bash(powershell.exe -Command '& { $env:PATH += '\\\\'';C:\\\\Program Files\\\\CMake\\\\bin'\\\\''; Set-Location d:\\\\cura; cmake -B build '\\\\''-DCMAKE_PREFIX_PATH=C:/Program Files/Slint-cpp 1.15.1'\\\\'' }')"
+    ]
+  }
+}

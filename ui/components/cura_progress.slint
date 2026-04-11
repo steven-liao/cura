@@ -1,0 +1,104 @@
+// Cura Progress Screen
+// Shows scanning progress with real-time stats
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+
+export component CuraProgress inherits Rectangle {
+    in property <float> progress;
+    in property <int> files-scanned;
+    in property <int> total-files;
+
+    callback cancel-clicked();
+
+    
+    
+    background: CuraTheme.background;
+
+    VerticalLayout {
+        padding: 48px;
+        spacing: 24px;
+
+        alignment: center;
+
+        // Header
+        Text {
+            text: "cura";
+            font-size: 32px;
+            font-weight: 700;
+            color: CuraTheme.accent;
+            horizontal-alignment: center;
+        }
+
+        // Progress card
+        Rectangle {
+            width: 400px;
+            height: 200px;
+            background: CuraTheme.background-secondary;
+            border-radius: 12px;
+
+            VerticalLayout {
+                padding: 24px;
+                spacing: 16px;
+
+                Text {
+                    text: "Scanning Photos...";
+                    font-size: 18px;
+                    color: CuraTheme.text;
+                    horizontal-alignment: center;
+                }
+
+                // Progress bar
+                Rectangle {
+                    
+                    height: 24px;
+                    background: CuraTheme.background;
+                    border-radius: 12px;
+
+                    Rectangle {
+                        width: parent.width * progress;
+                        
+                        background: CuraTheme.accent;
+                        border-radius: 12px;
+                    }
+                }
+
+                // Progress percentage
+                Text {
+                    text: round(progress * 100) + "%";
+                    font-size: 24px;
+                    font-weight: 700;
+                    color: CuraTheme.text;
+                    horizontal-alignment: center;
+                }
+
+                // File counts
+                Text {
+                    text: files-scanned + " / " + total-files + " files";
+                    font-size: 14px;
+                    color: CuraTheme.text-secondary;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+
+        // Cancel button
+        Rectangle {
+            width: 120px;
+            height: 40px;
+            background: CuraTheme.error;
+            border-radius: 8px;
+
+            Text {
+                text: "Cancel";
+                color: CuraTheme.text;
+                font-size: 14px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.cancel-clicked(); }
+            }
+        }
+    }
+}

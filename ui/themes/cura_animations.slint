@@ -1,0 +1,71 @@
+// Cura Animations
+// Shared animation definitions
+
+export global CuraAnimations {
+    // Duration constants
+    out property <duration> duration-fast: 100ms;
+    out property <duration> duration-normal: 200ms;
+    out property <duration> duration-slow: 400ms;
+}
+
+// Animated button hover effect
+export component AnimatedButton inherits Rectangle {
+    in property <string> text;
+    in property <color> background-color;
+    in property <color> hover-color;
+    in property <bool> primary: false;
+
+    callback clicked();
+
+    height: 40px;
+    border-radius: 8px;
+    background: background-color;
+
+    Text {
+        text: root.text;
+        color: #ffffff;
+        font-size: 14px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Animated progress bar
+export component AnimatedProgress inherits Rectangle {
+    in property <float> value: 0.0; // 0.0 to 1.0
+    in property <color> track-color: #1a1a2e;
+    in property <color> progress-color: #e94560;
+
+    height: 24px;
+    border-radius: 12px;
+    background: track-color;
+
+    Rectangle {
+        width: parent.width * value;
+        border-radius: 12px;
+        background: progress-color;
+    }
+}
+
+// Fade in/out animation
+export component FadeOverlay inherits Rectangle {
+    in property <bool> show-overlay: false;
+    in property <color> overlay-color: #000000aa;
+
+    background: overlay-color;
+    opacity: show-overlay ? 1.0 : 0.0;
+}
+
+// Slide animation for cards
+export component SlideCard inherits Rectangle {
+    in property <bool> expanded: false;
+
+    property <length> base-height: 120px;
+    property <length> expanded-height: 200px;
+
+    height: expanded ? expanded-height : base-height;
+}
