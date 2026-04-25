@@ -12,7 +12,7 @@ component DuplicateGroupCard inherits Rectangle {
 
     callback select-for-delete(int);
     callback select-for-move(int);
-    callback hovered-changed(int, bool);
+    callback more-clicked(int);
 
     property <int> file-count: group-data.files.length;
     property <int> display-count: group-data.display-files.length;
@@ -24,22 +24,6 @@ component DuplicateGroupCard inherits Rectangle {
     height: 180px;
     background: CuraTheme.background-secondary;
     border-radius: 8px;
-
-    // Hover detection - covers the entire card
-    hover-touch := TouchArea {
-        width: 100%;
-        height: 100%;
-    }
-
-    // Only trigger hover for popup when hovering over the file list area (not buttons)
-    property <bool> should-show-popup-hover: hover-touch.has-hover && hidden-count > 0;
-
-    // Expose hover state via callback when it changes
-    property <bool> card-hovered: hover-touch.has-hover;
-
-    changed should-show-popup-hover => {
-        root.hovered-changed(root.group-id, self.should-show-popup-hover);
-    }
 
     VerticalLayout {
         padding: 8px;
@@ -141,6 +125,10 @@ component DuplicateGroupCard inherits Rectangle {
                             horizontal-alignment: center;
                             vertical-alignment: center;
                         }
+
+                        TouchArea {
+                            clicked => { root.more-clicked(root.group-id); }
+                        }
                     }
             }
         }
@@ -151,26 +139,7 @@ component DuplicateGroupCard inherits Rectangle {
             Rectangle {
                 horizontal-stretch: 1;
                 height: 24px;
-                background: CuraTheme.error;
-                border-radius: 4px;
-
-                TouchArea {
-                    clicked => { root.select-for-delete(root.group-id); }
-                }
-
-                Text {
-                    text: "Delete";
-                    color: CuraTheme.text;
-                    font-size: 10px;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
-            }
-
-            Rectangle {
-                horizontal-stretch: 1;
-                height: 24px;
-                background: CuraTheme.primary;
+                background: CuraTheme.action;
                 border-radius: 4px;
 
                 TouchArea {
@@ -180,6 +149,28 @@ component DuplicateGroupCard inherits Rectangle {
                 Text {
                     text: "Move";
                     color: CuraTheme.text;
+                    font-size: 10px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 24px;
+                background: transparent;
+                border-radius: 4px;
+                border-width: 1px;
+                border-color: CuraTheme.error;
+
+                TouchArea {
+                    clicked => { root.select-for-delete(root.group-id); }
+                }
+
+                Text {
+                    text: "Delete";
+                    color: CuraTheme.error;
                     font-size: 10px;
                     horizontal-alignment: center;
                     vertical-alignment: center;
@@ -198,16 +189,11 @@ component DuplicatePopup inherits Rectangle {
     in property <length> container-width: 0px;
     in property <length> container-height: 0px;
 
-    out property <bool> popup-is-hovered: popup-hover.has-hover;
+    callback close-clicked();
 
     property <int> file-count: group-data.files.length;
 
     // Calculate card position based on grid layout
-    // Need to account for parent container offsets:
-    // - Outer VerticalLayout padding: 24px
-    // - Header height: 60px + 16px spacing = 76px
-    // - GridLayout padding: 16px
-    // - Card height: 180px + 12px spacing
     property <length> grid-offset-y: 180px;
 
     property <int> card-row: group-id / grid-cols;
@@ -223,10 +209,8 @@ component DuplicatePopup inherits Rectangle {
     // Show popup to the right of card, or to the left if near right edge
     property <bool> show-on-left: card-col >= grid-cols - 1;
 
-    // Clamp popup position to stay within screen bounds
-    // Position overlapping the card by 10px to ensure smooth hover transition
     property <length> popup-width: 320px;
-    property <length> popup-x: show-on-left ? card-x - popup-width + 10px : card-x + estimated-card-width - 10px;
+    property <length> popup-x: show-on-left ? card-x - popup-width + 4px : card-x + estimated-card-width - 4px;
     // Align popup top with card top
     property <length> popup-y: card-y;
 
@@ -244,23 +228,42 @@ component DuplicatePopup inherits Rectangle {
     drop-shadow-blur: 4px;
     drop-shadow-color: #00000080;
 
-    // Track hover over popup itself
-    popup-hover := TouchArea {
-        width: 100%;
-        height: 100%;
-    }
-
     VerticalLayout {
         padding: 6px;
         spacing: 4px;
         alignment: start;
 
-        Text {
-            text: root.file-count + " files";
-            font-size: 11px;
-            font-weight: 700;
-            color: CuraTheme.accent;
-            height: 14px;
+        HorizontalLayout {
+            spacing: 4px;
+
+            Text {
+                text: root.file-count + " files";
+                font-size: 11px;
+                font-weight: 700;
+                color: CuraTheme.accent;
+                vertical-alignment: center;
+                horizontal-stretch: 1;
+            }
+
+            // Close button
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                background: CuraTheme.background-secondary;
+
+                Text {
+                    text: "X";
+                    color: CuraTheme.text-secondary;
+                    font-size: 10px;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => { root.close-clicked(); }
+                }
+            }
         }
 
         Rectangle {
@@ -316,7 +319,6 @@ export component CuraReview inherits Rectangle {
     callback undo-clicked();
 
     property <int> grid-cols: Math.max(1, Math.min(6, round((self.width / 1px - 80) / 232)));
-    property <int> hovered-card-id: -1;
     property <int> active-popup-id: -1;
     property <DuplicateGroupData> empty-popup-data: {
         files: [],
@@ -328,8 +330,6 @@ export component CuraReview inherits Rectangle {
         thumbnail: @image-url("")
     };
     property <DuplicateGroupData> popup-data: root.empty-popup-data;
-
-    // Popup will expose its hover state via is-hovered property
 
     background: CuraTheme.background;
 
@@ -347,20 +347,6 @@ export component CuraReview inherits Rectangle {
                 color: CuraTheme.accent;
             }
 
-            Rectangle {
-                width: 32px;
-                height: 32px;
-                border-radius: 16px;
-                background: CuraTheme.background-secondary;
-
-                Text {
-                    text: "?";
-                    color: CuraTheme.text-secondary;
-                    font-size: 16px;
-                    horizontal-alignment: center;
-                    vertical-alignment: center;
-                }
-            }
         }
 
         Rectangle {
@@ -413,17 +399,13 @@ export component CuraReview inherits Rectangle {
                             select-for-move(id) => {
                                 root.handle-duplicates-clicked([id], "move", "");
                             }
-                            hovered-changed(id, is-hover) => {
-                                if is-hover {
-                                    root.hovered-card-id = id;
+                            more-clicked(id) => {
+                                if root.active-popup-id == id {
+                                    root.active-popup-id = -1;
+                                    root.popup-data = root.empty-popup-data;
+                                } else {
                                     root.active-popup-id = id;
                                     root.popup-data = group-data;
-                                } else if root.hovered-card-id == id {
-                                    root.hovered-card-id = -1;
-                                    if root.active-popup-id == id && !popup.popup-is-hovered {
-                                        root.active-popup-id = -1;
-                                        root.popup-data = root.empty-popup-data;
-                                    }
                                 }
                             }
                         }
@@ -497,11 +479,9 @@ export component CuraReview inherits Rectangle {
             container-height: root.height;
             show: root.active-popup-id >= 0 && root.popup-data.files.length > 3;
 
-            changed popup-is-hovered => {
-                if !self.popup-is-hovered && root.hovered-card-id != root.active-popup-id {
-                    root.active-popup-id = -1;
-                    root.popup-data = root.empty-popup-data;
-                }
+            close-clicked => {
+                root.active-popup-id = -1;
+                root.popup-data = root.empty-popup-data;
             }
         }
     }

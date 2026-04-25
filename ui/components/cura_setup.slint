@@ -243,25 +243,34 @@ export component CuraSetup inherits Rectangle {
             }
         }
 
+        // Warning hint when no folders selected
+        if root.selected-folders.length == 0:
+            Text {
+                text: "Add at least one folder to begin scanning";
+                color: CuraTheme.warning;
+                font-size: 12px;
+                horizontal-alignment: center;
+            }
+
         // Start button
         Rectangle {
-            
             height: 50px;
-            background: CuraTheme.accent;
+            background: root.selected-folders.length == 0 ? CuraTheme.background-secondary : CuraTheme.action;
             border-radius: 8px;
 
             Text {
                 text: "Start Scanning";
-                color: CuraTheme.text;
+                color: root.selected-folders.length == 0 ? CuraTheme.text-secondary : CuraTheme.text;
                 font-size: 16px;
                 font-weight: 700;
                 horizontal-alignment: center;
                 vertical-alignment: center;
             }
 
-            TouchArea {
-                clicked => { root.start-clicked(); }
-            }
+            if root.selected-folders.length > 0:
+                TouchArea {
+                    clicked => { root.start-clicked(); }
+                }
         }
     }
 }

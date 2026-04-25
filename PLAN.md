@@ -211,12 +211,13 @@ public:
 
 ### Key Screens
 
-#### 1. Scan Setup (`cura_setup.slint`)
+#### 1. Setup (`cura_setup.slint`)
 **Features:**
 - **Folder Selection**: User chooses one or multiple folders to scan
 - **Hash Detection**: Always enabled (mandatory)
 - **Visual Similarity**: Optional checkbox to enable perceptual hash
 - **Similarity Threshold**: Slider (only shown when visual similarity enabled)
+- **Disabled Button State**: "Start Scanning" greyed out when no folders selected; inline warning hint shown
 
 #### 2. Scanning Progress (`cura_progress.slint`)
 - Real-time progress bar with file counts
@@ -224,34 +225,44 @@ public:
 - ETA based on processing speed
 - Cancel button
 
-#### 3. Duplicate Review (`cura_review.slint`)
+#### 3. Results Review (`cura_review.slint`)
 - Duplicate group cards in responsive GridLayout
 - Each card shows:
   - Thumbnail of best file (original)
+  - "KEEP" badge on the file to retain
   - File list with max 3 visible items, "+N more" indicator for overflow
-  - Delete and Move action buttons
-- **Hover Popup:** Shows all duplicate files in a scrollable popup when hovering over cards with >3 files
+  - **Move** button (primary, blue) and **Delete** button (secondary, red outline)
+- **Click Popup:** Click "+N more" label on card to show all duplicate files in a popup
   - Popup rendered at window level (outside GridLayout) to avoid z-index issues
   - Position calculated based on card's grid position (row/col)
-  - Size: 200px × 150px with scrollable file list
-  - **Known Issue:** Hover transition from card to popup has timing flickering (race condition between card unhover and popup hover)
+  - Size: 320px × 150px with scrollable file list and X close button
+  - Click "+N more" again or X button to close; click on different card to switch
 - Undo support for deletions
+
+#### 4. Organize (`cura_organize.slint`)
+- **Folder Selection**: Same pattern as Setup, with "Use folders from Setup tab" shortcut
+- **Granularity**: Year / Month (default) / Day selector
+- **Target Folder**: Click-to-select with empty state hint
+- **Disabled Button State**: "Start Organize" greyed out when prerequisites missing; contextual warning hints
+- **Results**: Shows count + target path after completion
+- **Empty State Guidance**: Inline hints for all empty states (no folders, no target)
 
 ### Slint Component Structure (Implemented)
 ```
 ui/
-├── cura_main.slint          # Main window with 3-screen navigation ✅
+├── cura_main.slint          # Main window with 3-tab navigation (Setup/Results/Organize) ✅
 ├── components/
 │   ├── cura_setup.slint     # Folder selection + scan options ✅
 │   ├── cura_progress.slint  # Animated progress with stats ✅
-│   ├── cura_review.slint    # Duplicate group review with hover popup ✅
+│   ├── cura_review.slint    # Duplicate group review with click-based popup ✅
+│   ├── cura_organize.slint  # Organize by Date screen with folder sharing ✅
 │   ├── cura_thumbnail.slint # Thumbnail display component ✅ (standalone)
 │   ├── cura_preview.slint   # Full image preview modal ✅ (standalone, not integrated)
 │   ├── cura_group.slint     # Duplicate group card ✅ (standalone, not used in main)
 │   ├── cura_toolbar.slint   # Actions toolbar ✅ (standalone)
 │   └── cura_folder_picker.slint # Folder selection dialog ✅ (standalone)
 ├── themes/
-│   ├── cura_theme.slint     # Dark theme colors ✅
+│   ├── cura_theme.slint     # Dark theme with action color (#2979ff) ✅
 │   └── cura_animations.slint # Shared animations ✅
 └── models/
     └── cura_models.slint    # Data models (DuplicateGroupData, etc.) ✅
@@ -432,19 +443,20 @@ Using **Catch2** for C++ unit testing.
 4. ✅ Create duplicate group display with GridLayout (dynamic columns based on window width)
 5. ✅ Implement hover popup for viewing all duplicate files (positioned at window level)
 6. ✅ Add dark theme (cura_theme.slint) and animations
-7. ⏳ Fix hover popup transition timing (card-to-popup hover race condition)
+7. ✅ Fix hover popup transition timing (card-to-popup hover race condition)
 
 ### Phase 4: Polish & Testing (Week 3-4) 🔄 IN PROGRESS
 1. ✅ Visual similarity detection implemented (simplified pHash, optional toggle in setup)
 2. ✅ Implement undo functionality (works for move; delete uses Recycle Bin - manual restore only)
 3. ⏳ Add keyboard shortcuts
 4. ✅ Run full test suite (13/13 tests passing)
-5. ⏳ Fix hover popup card-to-popup transition
-6. ⏳ Performance profiling and optimization (visual clustering is O(n^2))
-7. ⏳ Cross-platform testing (Windows working; macOS/Linux folder picker placeholder)
-8. ⏳ Write documentation (README, usage guide)
-9. ⏳ Export Report button (UI exists, callback not bound)
-10. ⏳ Preview modal integration (component exists, not in main flow)
+5. ✅ Fix popup card-to-popup transition → switched to click-based
+6. ✅ UI/UX overhaul: 3-tab nav, button states, action color, empty states, button hierarchy, folder sharing
+7. ⏳ Performance profiling and optimization (visual clustering is O(n^2))
+8. ⏳ Cross-platform testing (Windows working; macOS/Linux folder picker placeholder)
+9. ⏳ Write documentation (README, usage guide)
+10. ⏳ Export Report button (UI exists, callback not bound)
+11. ⏳ Preview modal integration (component exists, not in main flow)
 
 ---
 
@@ -467,7 +479,7 @@ cd build && ctest --output-on-failure
 6. **Delete operation:** Verify files moved to trash ✅ (Windows Recycle Bin)
 7. **Move operation:** Verify files moved to target folder ✅
 8. **Undo:** Verify last operation can be undone ⚠️ (Move undo works; Delete undo requires manual Recycle Bin restore)
-9. **Hover popup:** Display all files when hovering cards with >3 duplicates ✅ (transition timing issue ⏳)
+9. **Hover popup:** Display all files when hovering cards with >3 duplicates ✅ (transition timing fixed)
 10. **Thumbnail display:** Verify thumbnails load with correct orientation ✅ (EXIF rotation applied)
 
 ---
@@ -486,17 +498,22 @@ cd build && ctest --output-on-failure
 | Delete Operation | Windows Recycle Bin (safe delete) |
 | Move Operation | Move to folder with conflict handling |
 | Undo for Move | Restore moved files to original location |
-| Hover Popup | View all files in group (scrollable, positioned near card) |
+| Click Popup | Click "+N more" to view all files (scrollable, positioned near card, X close button) |
 | Organize by Date | Organize photos into YYYY/MM/DD folders with EXIF date extraction |
 | Progress Display | Real-time stats (files/sec, ETA, current file) |
 | Cancel Scan | Stop scanning mid-process |
+| 3-Tab Navigation | Setup / Results / Organize with clear view mapping |
+| Button States | Disabled state + inline hints when prerequisites not met |
+| Folder Sharing | "Use folders from Setup tab" shortcut in Organize |
+| Action Color | Blue (#2979ff) for constructive CTAs, red for destructive |
+| Button Hierarchy | Move = primary (blue solid), Delete = secondary (red outline) |
+| Empty State Guidance | Inline hints on all screens for missing prerequisites |
 
 ### ⚠️ Partially Working
 | Feature | Issue |
 |---------|-------|
 | Undo for Delete | Files go to Recycle Bin but cannot be auto-restored |
 | Visual Hash | Simplified implementation (not full DCT-based pHash) |
-| Hover Popup Transition | Race condition when moving from card to popup |
 
 ### ⏳ Not Implemented
 | Feature | Notes |
@@ -513,20 +530,15 @@ cd build && ctest --output-on-failure
 
 ## Known Issues & Workarounds
 
-### Hover Popup Timing Issue
-**Problem:** When moving the mouse from a duplicate card to its popup, the popup disappears due to a race condition.
+### Duplicate Popup (Click-Based) ✅ RESOLVED
+**Problem:** Hover-based popup had race condition between card losing hover and popup gaining hover, causing flickering.
 
-**Root Cause:** Slint's `changed` callbacks fire asynchronously. When the card loses hover, the show condition immediately re-evaluates to `false` before the popup's TouchArea can detect the new hover state.
-
-**Current Workaround:**
-- Popup overlaps the card by 10px
-- Direct property binding: `show: (hovered-card-id >= 0 || popup-is-hovered)`
-
-**Potential Solutions:**
-1. Timer-based delayed hide (if Slint adds timer support)
-2. Larger overlap area (50px+) between card and popup
-3. Single shared TouchArea at parent level tracking mouse position
-4. Restructure so popup is child element but uses window coordinates
+**Solution (2026-04-25):** Changed to click-based trigger:
+- Click "+N more" label on card → show popup
+- Click "+N more" again or X button → hide popup
+- Click "+N more" on different card → switch popup
+- Removed all hover-related code (`hover-touch`, `hovered-changed`, `popup-is-hovered`, `changed` handlers)
+- This eliminates timing issues entirely since click events are discrete, not continuous
 
 ### Undo Limitation for Delete Operations
 **Problem:** Deleted files cannot be auto-restored from Windows Recycle Bin.
@@ -555,12 +567,11 @@ cd build && ctest --output-on-failure
 ### Slint UI Limitations Discovered
 - **z-index:** Only works within same parent container, not across GridLayout siblings
 - **`if` in callbacks:** Cannot use `if` statements inside `changed` callbacks
-- **Boolean operators:** Cannot use `&&` or `||` in Slint `if` conditions directly
-- **Callback timing:** `changed` callbacks fire asynchronously, causing race conditions
+- **Boolean operators:** Cannot use `&&`, `||`, or `!` in Slint `if` conditions (use property bindings instead — `&&`/`||`/`!` work fine in property expressions)
+- **Callback timing:** `changed` callbacks fire asynchronously, causing race conditions with hover events
 - **Property access:** Nested TouchArea properties require specific binding syntax
 - **No timers:** No built-in timer/delay mechanism for debouncing events
-- **Callback timing:** `changed` callbacks fire asynchronously, causing race conditions
-- **Property access:** Nested TouchArea properties require specific binding syntax
+- **Mutual exclusion in if conditions:** Must nest `if` blocks or use pre-computed properties instead of combining conditions
 
 | Risk | Mitigation |
 |------|------------|

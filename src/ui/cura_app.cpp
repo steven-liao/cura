@@ -270,6 +270,7 @@ void CuraApp::bind_callbacks() {
 
     // Bind organize-start callback
     win->on_organize_start([this]() {
+        std::cout << "on_organize_start callback fired" << std::endl;
         organize_start();
     });
 
@@ -281,6 +282,25 @@ void CuraApp::bind_callbacks() {
     // Bind organize-undo callback
     win->on_organize_undo([this]() {
         organize_undo();
+    });
+
+    // Bind organize-copy-scan-folders callback
+    win->on_organize_copy_scan_folders([this]() {
+        // Copy folders from scan to organize
+        std::lock_guard<std::mutex> lock(state_mutex_);
+        for (const auto& folder : selected_folders_) {
+            if (std::find(organize_folders_.begin(), organize_folders_.end(), folder)
+                == organize_folders_.end()) {
+                organize_folders_.push_back(folder);
+            }
+        }
+        // Update organize folder list in UI
+        auto win = *window_;
+        auto model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+        for (const auto& folder : organize_folders_) {
+            model->push_back(slint::SharedString(folder));
+        }
+        win->set_organize_folders(model);
     });
 }
 
@@ -778,7 +798,21 @@ const std::string& CuraApp::get_organize_target_folder() const {
 }
 
 void CuraApp::organize_start() {
-    if (organize_folders_.empty() || organize_target_folder_.empty() || organizing_) {
+    std::cout << "organize_start() called" << std::endl;
+    std::cout << "  organize_folders_.size(): " << organize_folders_.size() << std::endl;
+    std::cout << "  organize_target_folder_: '" << organize_target_folder_ << "'" << std::endl;
+    std::cout << "  organizing_: " << organizing_ << std::endl;
+
+    if (organize_folders_.empty()) {
+        std::cerr << "ERROR: No source folders selected" << std::endl;
+        return;
+    }
+    if (organize_target_folder_.empty()) {
+        std::cerr << "ERROR: No target folder selected" << std::endl;
+        return;
+    }
+    if (organizing_) {
+        std::cerr << "ERROR: Already organizing" << std::endl;
         return;
     }
 
@@ -801,6 +835,11 @@ void CuraApp::organize_start() {
     win->set_organize_files_processed(0);
     win->set_organize_total_files(0);
     win->set_organize_current_file(slint::SharedString(""));
+
+    // Join previous organize thread if it completed
+    if (organize_thread_.joinable()) {
+        organize_thread_.join();
+    }
 
     // Start organize thread
     organize_thread_ = std::thread(&CuraApp::run_organize_thread, this,

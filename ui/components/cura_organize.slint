@@ -75,6 +75,7 @@ component GranularityButton inherits Rectangle {
 // Main organize component
 export component CuraOrganize inherits Rectangle {
     in property <[string]> source-folders;
+    in property <[string]> scan-folders;
     in property <string> date-granularity: "month";  // "year", "month", "day"
     in property <int> files-organized: 0;
     in property <int> total-files: 0;
@@ -83,6 +84,11 @@ export component CuraOrganize inherits Rectangle {
     in property <bool> can-undo: false;
     in property <string> target-folder: "";
 
+    property <bool> can-organize: source-folders.length > 0 && target-folder != "";
+    property <bool> can-use-scan-folders: source-folders.length == 0 && scan-folders.length > 0;
+    property <bool> show-prereq-hint: !organizing && !can-organize;
+    property <bool> show-results: !organizing && files-organized > 0;
+
     callback add-folder-clicked();
     callback remove-folder-clicked(string);
     callback set-granularity(string);
@@ -90,6 +96,7 @@ export component CuraOrganize inherits Rectangle {
     callback cancel-organize-clicked();
     callback undo-organize-clicked();
     callback select-target-folder-clicked();
+    callback copy-scan-folders-clicked();
 
     background: CuraTheme.background;
 
@@ -152,8 +159,40 @@ export component CuraOrganize inherits Rectangle {
                                 path: folder;
                                 remove-clicked => { root.remove-folder-clicked(folder); }
                             }
+
+                        // Empty state hint
+                        if source-folders.length == 0:
+                            Text {
+                                text: "No folders added — click '+ Add Folder' below";
+                                color: CuraTheme.text-secondary;
+                                font-size: 10px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
                     }
                 }
+
+                // Use scan folders shortcut
+                if can-use-scan-folders:
+                    Rectangle {
+                        height: 28px;
+                        background: CuraTheme.background;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: CuraTheme.accent;
+
+                        Text {
+                            text: "Use folders from Setup tab (" + scan-folders.length + ")";
+                            color: CuraTheme.accent;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { root.copy-scan-folders-clicked(); }
+                        }
+                    }
 
                 // Add folder button
                 Rectangle {
@@ -225,41 +264,53 @@ export component CuraOrganize inherits Rectangle {
 
         // Target folder selection
         Rectangle {
-            height: 60px;
+            height: 80px;
             background: CuraTheme.background-secondary;
             border-radius: 8px;
 
-            HorizontalLayout {
+            VerticalLayout {
                 padding: 12px;
-                spacing: 12px;
+                spacing: 6px;
 
-                Text {
-                    text: "Target folder:";
-                    color: CuraTheme.text;
-                    font-size: 12px;
-                    vertical-alignment: center;
-                }
-
-                Rectangle {
-                    horizontal-stretch: 1;
-                    height: 32px;
-                    background: CuraTheme.background;
-                    border-radius: 4px;
+                HorizontalLayout {
+                    spacing: 12px;
 
                     Text {
-                        text: root.target-folder == "" ? "Click to select..." : root.target-folder;
-                        color: root.target-folder == "" ? CuraTheme.text-secondary : CuraTheme.text;
+                        text: "Target folder:";
+                        color: CuraTheme.text;
                         font-size: 12px;
-                        overflow: elide;
-                        horizontal-alignment: left;
                         vertical-alignment: center;
-                        x: 8px;
                     }
 
-                    TouchArea {
-                        clicked => { root.select-target-folder-clicked(); }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        height: 32px;
+                        background: CuraTheme.background;
+                        border-radius: 4px;
+
+                        Text {
+                            text: root.target-folder == "" ? "Click to select..." : root.target-folder;
+                            color: root.target-folder == "" ? CuraTheme.text-secondary : CuraTheme.text;
+                            font-size: 12px;
+                            overflow: elide;
+                            horizontal-alignment: left;
+                            vertical-alignment: center;
+                            x: 8px;
+                        }
+
+                        TouchArea {
+                            clicked => { root.select-target-folder-clicked(); }
+                        }
                     }
                 }
+
+                // Target hint
+                if root.target-folder == "":
+                    Text {
+                        text: "Select where organized folders will be created";
+                        color: CuraTheme.text-secondary;
+                        font-size: 10px;
+                    }
             }
         }
 
@@ -336,6 +387,17 @@ export component CuraOrganize inherits Rectangle {
                 }
             }
 
+        // Prerequisites hint
+        if show-prereq-hint:
+            Text {
+                text: root.source-folders.length == 0 && root.target-folder == "" ? "Add source folders and select a target folder to begin" :
+                      root.source-folders.length == 0 ? "Add at least one source folder to begin" :
+                      "Select a target folder to begin";
+                color: CuraTheme.warning;
+                font-size: 12px;
+                horizontal-alignment: center;
+            }
+
         // Action buttons
         HorizontalLayout {
             spacing: 12px;
@@ -344,25 +406,22 @@ export component CuraOrganize inherits Rectangle {
             Rectangle {
                 horizontal-stretch: 1;
                 height: 44px;
-                background: organizing ? CuraTheme.background-secondary : CuraTheme.accent;
+                background: organizing ? CuraTheme.background-secondary : (can-organize ? CuraTheme.action : CuraTheme.background-secondary);
                 border-radius: 8px;
 
                 Text {
                     text: organizing ? "Organizing..." : "Start Organize";
-                    color: CuraTheme.text;
+                    color: organizing ? CuraTheme.text : (can-organize ? CuraTheme.text : CuraTheme.text-secondary);
                     font-size: 14px;
                     font-weight: 700;
                     horizontal-alignment: center;
                     vertical-alignment: center;
                 }
 
-                TouchArea {
-                    clicked => {
-                        if !organizing {
-                            root.start-organize-clicked();
-                        }
+                if can-organize:
+                    TouchArea {
+                        clicked => { root.start-organize-clicked(); }
                     }
-                }
             }
 
             // Undo button
@@ -388,28 +447,40 @@ export component CuraOrganize inherits Rectangle {
         }
 
         // Results info (shown when complete and files were organized)
-        if !organizing && files-organized > 0:
+        if show-results:
             Rectangle {
-                height: 60px;
+                height: 72px;
                 background: CuraTheme.background-secondary;
                 border-radius: 8px;
 
-                HorizontalLayout {
-                    padding: 16px;
-                    spacing: 24px;
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 6px;
 
-                    Text {
-                        text: "Organized " + root.files-organized + " files";
-                        color: CuraTheme.success;
-                        font-size: 14px;
-                        vertical-alignment: center;
+                    HorizontalLayout {
+                        spacing: 8px;
+
+                        Text {
+                            text: "Organized " + root.files-organized + " files";
+                            color: CuraTheme.success;
+                            font-size: 14px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: "into date-based folders";
+                            color: CuraTheme.text-secondary;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
                     }
 
                     Text {
-                        text: "into date-based folders";
+                        text: "Target: " + root.target-folder;
                         color: CuraTheme.text-secondary;
-                        font-size: 12px;
-                        vertical-alignment: center;
+                        font-size: 11px;
+                        overflow: elide;
                     }
                 }
             }

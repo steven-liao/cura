@@ -85,6 +85,7 @@ export component CuraMainWindow inherits Window {
     callback organize-start();
     callback organize-cancel();
     callback organize-undo();
+    callback organize-copy-scan-folders();
 
     // View container
     VerticalLayout {
@@ -102,9 +103,15 @@ export component CuraMainWindow inherits Window {
                     spacing: 8px;
 
                     NavTab {
-                        label: "Scan";
-                        active: root.current-view == "setup" || root.current-view == "review";
+                        label: "Setup";
+                        active: root.current-view == "setup";
                         clicked => { root.current-view = "setup"; }
+                    }
+
+                    NavTab {
+                        label: "Results";
+                        active: root.current-view == "review";
+                        clicked => { root.current-view = "review"; }
                     }
 
                     NavTab {
@@ -158,6 +165,7 @@ export component CuraMainWindow inherits Window {
             if current-view == "organize":
                 CuraOrganize {
                     source-folders: root.organize-folders;
+                    scan-folders: root.selected-folders;
                     date-granularity: root.organize-granularity;
                     target-folder: root.organize-target-folder;
                     files-organized: root.organize-files-processed;
@@ -176,6 +184,7 @@ export component CuraMainWindow inherits Window {
                     start-organize-clicked => { root.organize-start(); }
                     cancel-organize-clicked => { root.organize-cancel(); }
                     undo-organize-clicked => { root.organize-undo(); }
+                    copy-scan-folders-clicked => { root.organize-copy-scan-folders(); }
                 }
         }
     }

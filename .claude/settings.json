@@ -43,10 +43,19 @@
       "Bash(cmake -B build \"-DCMAKE_PREFIX_PATH=C:/Program Files/Slint-cpp 1.15.1\")",
       "Bash(taskkill //F //IM cura.exe)",
       "Bash(cmake -B build \"-DCMAKE_PREFIX_PATH=C:/Program Files/Slint-cpp 1.15.1\" -DCURA_BUILD_TESTS=ON)",
-      "Bash(ctest --test-dir d:/cura/build --output-on-failure -C Release)"
+      "Bash(ctest --test-dir d:/cura/build --output-on-failure -C Release)",
+      "Read(//c/Users/eh_li/.claude/projects/d--cura/memory/**)",
+      "Bash(disown)",
+      "Bash(cmd.exe /c \"taskkill /f /im cura.exe 2>nul & exit 0\")",
+      "Bash(./d:/cura/build/Release/cura.exe)",
+      "Bash(\"/d/cura/build/Release/cura.exe\")",
+      "Bash(cmd.exe /c \"start /b D:\\\\cura\\\\build\\\\Release\\\\cura.exe\")",
+      "Bash(start \"\" \"./build/Release/cura.exe\")",
+      "Bash(git add *)"
     ],
     "additionalDirectories": [
       "C:\\Program Files\\Slint-cpp 1.15.1\\lib"
-    ]
+    ],
+    "modelContextWindow": 1000000
   }
 }
