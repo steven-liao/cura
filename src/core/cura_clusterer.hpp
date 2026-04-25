@@ -25,6 +25,8 @@ struct DuplicateGroup {
     uint64_t similarity_score;          // Hamming distance (for visual duplicates)
 };
 
+using ClusterProgressCallback = std::function<void(size_t current, size_t total)>;
+
 /**
  * @brief Duplicate clusterer using Union-Find
  */
@@ -43,7 +45,8 @@ public:
     std::vector<DuplicateGroup> cluster(
         const std::vector<HashResult>& hash_results,
         bool enable_visual = false,
-        uint64_t similarity_threshold = 10
+        uint64_t similarity_threshold = 10,
+        ClusterProgressCallback callback = nullptr
     );
 
     /**

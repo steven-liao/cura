@@ -6,22 +6,50 @@ import { DuplicateGroupData } from "models/cura_models.slint";
 import { CuraSetup } from "components/cura_setup.slint";
 import { CuraProgress } from "components/cura_progress.slint";
 import { CuraReview } from "components/cura_review.slint";
+import { CuraOrganize } from "components/cura_organize.slint";
+
+// Navigation tab button
+component NavTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> active;
+    callback clicked();
+
+    width: 100px;
+    height: 36px;
+    background: active ? CuraTheme.accent : CuraTheme.background-secondary;
+    border-radius: 4px;
+
+    Text {
+        text: label;
+        color: active ? CuraTheme.text : CuraTheme.text-secondary;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
 
 // Main application window
 export component CuraMainWindow inherits Window {
     title: "Cura - Photo Deduplication";
-    preferred-width: 900px;
-    preferred-height: 700px;
+    preferred-width: 1000px;
+    preferred-height: 750px;
+    min-width: 800px;
+    min-height: 600px;
     background: CuraTheme.background;
 
     // Current view state
-    in-out property <string> current-view: "setup"; // "setup", "progress", "review"
+    in-out property <string> current-view: "setup"; // "setup", "progress", "review", "organize"
 
     // Shared state
     in-out property <[string]> selected-folders: [];
     in-out property <bool> enable-visual-similarity: false;
     in-out property <float> similarity-threshold: 0.9;
     in-out property <float> scan-progress: 0.0;
+    in-out property <string> scan-status: "Scanning Photos...";
     in-out property <int> files-scanned: 0;
     in-out property <int> total-files: 0;
 
@@ -31,6 +59,16 @@ export component CuraMainWindow inherits Window {
     in-out property <[DuplicateGroupData]> duplicate-groups: [];
     in-out property <bool> can-undo: false;
 
+    // Organize state
+    in-out property <[string]> organize-folders: [];
+    in-out property <string> organize-granularity: "month";  // "year", "month", "day"
+    in-out property <string> organize-target-folder: "";
+    in-out property <int> organize-files-processed: 0;
+    in-out property <int> organize-total-files: 0;
+    in-out property <string> organize-current-file: "";
+    in-out property <bool> organizing: false;
+    in-out property <bool> organize-can-undo: false;
+
     // Callbacks to C++
     callback add-folder();
     callback remove-folder(string);
@@ -39,44 +77,106 @@ export component CuraMainWindow inherits Window {
     callback handle-duplicates([int], string, string);
     callback undo-last();
 
+    // Organize callbacks
+    callback organize-add-folder();
+    callback organize-remove-folder(string);
+    callback organize-set-granularity(string);
+    callback organize-select-target-folder();
+    callback organize-start();
+    callback organize-cancel();
+    callback organize-undo();
+
     // View container
-    Rectangle {
-        
-        
+    VerticalLayout {
+        padding: 0px;
+        spacing: 0px;
 
-        if current-view == "setup":
-            CuraSetup {
-                selected-folders: root.selected-folders;
-                enable-visual: root.enable-visual-similarity;
-                similarity-threshold: root.similarity-threshold;
+        // Navigation tabs (only show when not in progress)
+        if current-view != "progress":
+            Rectangle {
+                height: 44px;
+                background: CuraTheme.background;
 
-                add-folder-clicked => { root.add-folder(); }
-                remove-folder-clicked(folder) => { root.remove-folder(folder); }
-                start-clicked => { root.start-scan(); }
-                toggle-visual => { root.enable-visual-similarity = !root.enable-visual-similarity; }
-                set-similarity-threshold(value) => { root.similarity-threshold = value; }
-            }
+                HorizontalLayout {
+                    padding: 8px;
+                    spacing: 8px;
 
-        if current-view == "progress":
-            CuraProgress {
-                progress: root.scan-progress;
-                files-scanned: root.files-scanned;
-                total-files: root.total-files;
+                    NavTab {
+                        label: "Scan";
+                        active: root.current-view == "setup" || root.current-view == "review";
+                        clicked => { root.current-view = "setup"; }
+                    }
 
-                cancel-clicked => { root.cancel-scan(); }
-            }
-
-        if current-view == "review":
-            CuraReview {
-                total-groups: root.total-groups;
-                total-save: root.total-save;
-                duplicate-groups: root.duplicate-groups;
-                can-undo: root.can-undo;
-
-                handle-duplicates-clicked(ids, action, target) => {
-                    root.handle-duplicates(ids, action, target);
+                    NavTab {
+                        label: "Organize";
+                        active: root.current-view == "organize";
+                        clicked => { root.current-view = "organize"; }
+                    }
                 }
-                undo-clicked => { root.undo-last(); }
             }
+
+        // Main content area
+        Rectangle {
+            vertical-stretch: 1;
+
+            if current-view == "setup":
+                CuraSetup {
+                    selected-folders: root.selected-folders;
+                    enable-visual: root.enable-visual-similarity;
+                    similarity-threshold: root.similarity-threshold;
+
+                    add-folder-clicked => { root.add-folder(); }
+                    remove-folder-clicked(folder) => { root.remove-folder(folder); }
+                    start-clicked => { root.start-scan(); }
+                    toggle-visual => { root.enable-visual-similarity = !root.enable-visual-similarity; }
+                    set-similarity-threshold(value) => { root.similarity-threshold = value; }
+                }
+
+            if current-view == "progress":
+                CuraProgress {
+                    progress: root.scan-progress;
+                    status: root.scan-status;
+                    files-scanned: root.files-scanned;
+                    total-files: root.total-files;
+
+                    cancel-clicked => { root.cancel-scan(); }
+                }
+
+            if current-view == "review":
+                CuraReview {
+                    total-groups: root.total-groups;
+                    total-save: root.total-save;
+                    duplicate-groups: root.duplicate-groups;
+                    can-undo: root.can-undo;
+
+                    handle-duplicates-clicked(ids, action, target) => {
+                        root.handle-duplicates(ids, action, target);
+                    }
+                    undo-clicked => { root.undo-last(); }
+                }
+
+            if current-view == "organize":
+                CuraOrganize {
+                    source-folders: root.organize-folders;
+                    date-granularity: root.organize-granularity;
+                    target-folder: root.organize-target-folder;
+                    files-organized: root.organize-files-processed;
+                    total-files: root.organize-total-files;
+                    current-file: root.organize-current-file;
+                    organizing: root.organizing;
+                    can-undo: root.organize-can-undo;
+
+                    add-folder-clicked => { root.organize-add-folder(); }
+                    remove-folder-clicked(folder) => { root.organize-remove-folder(folder); }
+                    set-granularity(value) => {
+                        root.organize-granularity = value;
+                        root.organize-set-granularity(value);
+                    }
+                    select-target-folder-clicked => { root.organize-select-target-folder(); }
+                    start-organize-clicked => { root.organize-start(); }
+                    cancel-organize-clicked => { root.organize-cancel(); }
+                    undo-organize-clicked => { root.organize-undo(); }
+                }
+        }
     }
 }

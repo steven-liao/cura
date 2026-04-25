@@ -5,6 +5,7 @@ import { CuraTheme } from "../themes/cura_theme.slint";
 
 export component CuraProgress inherits Rectangle {
     in property <float> progress;
+    in property <string> status;
     in property <int> files-scanned;
     in property <int> total-files;
 
@@ -41,7 +42,7 @@ export component CuraProgress inherits Rectangle {
                 spacing: 16px;
 
                 Text {
-                    text: "Scanning Photos...";
+                    text: status;
                     font-size: 18px;
                     color: CuraTheme.text;
                     horizontal-alignment: center;

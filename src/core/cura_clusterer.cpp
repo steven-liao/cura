@@ -64,7 +64,8 @@ std::vector<std::set<size_t>> CuraClusterer::UnionFind::get_groups() {
 std::vector<DuplicateGroup> CuraClusterer::cluster(
     const std::vector<HashResult>& hash_results,
     bool enable_visual,
-    uint64_t similarity_threshold
+    uint64_t similarity_threshold,
+    ClusterProgressCallback callback
 ) {
     std::vector<DuplicateGroup> groups;
 
@@ -98,6 +99,12 @@ std::vector<DuplicateGroup> CuraClusterer::cluster(
             }
         }
 
+        const size_t candidate_count = visual_candidates.size();
+        const size_t total_pairs = candidate_count > 1
+            ? (candidate_count * (candidate_count - 1)) / 2
+            : 0;
+        size_t processed_pairs = 0;
+
         // Compare all pairs
         for (size_t i = 0; i < visual_candidates.size(); ++i) {
             for (size_t j = i + 1; j < visual_candidates.size(); ++j) {
@@ -121,8 +128,15 @@ std::vector<DuplicateGroup> CuraClusterer::cluster(
                 if (min_dist <= similarity_threshold) {
                     uf.union_sets(idx_i, idx_j);
                 }
+
+                ++processed_pairs;
+                if (callback && (processed_pairs % 1000 == 0 || processed_pairs == total_pairs)) {
+                    callback(processed_pairs, total_pairs);
+                }
             }
         }
+    } else if (callback) {
+        callback(1, 1);
     }
 
     // Convert UnionFind groups to DuplicateGroups

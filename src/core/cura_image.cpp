@@ -14,6 +14,9 @@
 #include <algorithm>
 #include <cmath>
 #include <fstream>
+#include <chrono>
+#include <iomanip>
+#include <sstream>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -137,6 +140,220 @@ static int get_exif_orientation(const uint8_t* data, int data_size) {
     }
 
     return 0;
+}
+
+// Parse EXIF date from JPEG data
+// Returns date string in format "YYYY:MM:DD HH:MM:SS", or empty if not found
+// Priority: 0x9003 (DateTimeOriginal) > 0x0132 (DateTime) > 0x9004 (CreateDate)
+static std::string get_exif_date_string(const uint8_t* data, int data_size) {
+    // Check for JPEG signature
+    if (data_size < 4 || data[0] != 0xFF || data[1] != 0xD8) {
+        return ""; // Not a JPEG
+    }
+
+    // Search for EXIF marker (0xFFE1)
+    int pos = 2;
+    while (pos < data_size - 4) {
+        if (data[pos] != 0xFF) break;
+
+        uint8_t marker = data[pos + 1];
+        if (marker == 0xE1) {
+            // Found APP1 marker (EXIF)
+            int segment_size = (data[pos + 2] << 8) | data[pos + 3];
+            if (pos + 4 + segment_size > data_size) break;
+
+            const uint8_t* exif_data = data + pos + 4;
+            int exif_size = segment_size - 2;
+
+            // Check for "Exif\0\0" header
+            if (exif_size > 8 && exif_data[0] == 'E' && exif_data[1] == 'x' &&
+                exif_data[2] == 'i' && exif_data[3] == 'f' &&
+                exif_data[4] == 0 && exif_data[5] == 0) {
+
+                const uint8_t* tiff = exif_data + 6;
+                int tiff_size = exif_size - 6;
+
+                if (tiff_size < 8) break;
+
+                // Check byte order
+                bool big_endian = (tiff[0] == 'M' && tiff[1] == 'M');
+                bool little_endian = (tiff[0] == 'I' && tiff[1] == 'I');
+
+                if (!big_endian && !little_endian) break;
+
+                auto read16 = [&](const uint8_t* p) -> uint16_t {
+                    return big_endian ? (p[0] << 8) | p[1] : p[0] | (p[1] << 8);
+                };
+                auto read32 = [&](const uint8_t* p) -> uint32_t {
+                    return big_endian ? (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]
+                                      : p[0] | (p[1] << 8) | (p[2] << 16) | (p[3] << 24);
+                };
+
+                uint32_t ifd_offset = read32(tiff + 4);
+                if (ifd_offset + 2 > (uint32_t)tiff_size) break;
+
+                const uint8_t* ifd = tiff + ifd_offset;
+                uint16_t num_entries = read16(ifd);
+
+                // Priority order for date tags
+                const uint16_t date_tags[] = {0x9003, 0x0132, 0x9004}; // DateTimeOriginal, DateTime, CreateDate
+
+                for (const uint16_t target_tag : date_tags) {
+                    // Search for date tag
+                    for (uint16_t i = 0; i < num_entries; ++i) {
+                        int entry_pos = 2 + i * 12;
+                        if (entry_pos + 12 > tiff_size) break;
+
+                        const uint8_t* entry = ifd + entry_pos;
+                        uint16_t tag = read16(entry);
+
+                        if (tag == target_tag) {
+                            // Found date tag
+                            uint16_t type = read16(entry + 2);
+                            uint32_t count = read32(entry + 4);
+
+                            // ASCII string type is 2, count should be 20 for date format
+                            if (type == 2 && count >= 20) {
+                                // Get value offset
+                                uint32_t value_offset = read32(entry + 8);
+
+                                // If value fits in 4 bytes, it's stored inline
+                                const uint8_t* value_ptr;
+                                if (value_offset + count <= (uint32_t)tiff_size) {
+                                    value_ptr = tiff + value_offset;
+                                } else {
+                                    // Value stored inline (for small values)
+                                    value_ptr = entry + 8;
+                                }
+
+                                // Extract date string (format: "YYYY:MM:DD HH:MM:SS")
+                                if (value_ptr + 19 <= tiff + tiff_size) {
+                                    std::string date_str(value_ptr, value_ptr + 19);
+                                    // Validate format
+                                    if (date_str.length() >= 10 &&
+                                        date_str[4] == ':' && date_str[7] == ':') {
+                                        return date_str;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            break;
+        } else if (marker == 0xDA) {
+            // Start of scan - no more markers
+            break;
+        } else if (marker == 0x01 || (marker >= 0xD0 && marker <= 0xD7)) {
+            // Standalone markers
+            pos += 2;
+        } else {
+            // Skip this segment
+            int segment_size = (data[pos + 2] << 8) | data[pos + 3];
+            pos += 2 + segment_size;
+        }
+    }
+
+    return "";
+}
+
+// Parse EXIF date string "YYYY:MM:DD HH:MM:SS" into ImageDate
+static ImageDate parse_exif_date_string(const std::string& date_str) {
+    ImageDate date;
+    date.valid = false;
+
+    if (date_str.length() < 10) {
+        return date;
+    }
+
+    try {
+        // Format: "YYYY:MM:DD HH:MM:SS"
+        date.year = std::stoi(date_str.substr(0, 4));
+        date.month = std::stoi(date_str.substr(5, 2));
+        date.day = std::stoi(date_str.substr(8, 2));
+
+        // Validate values
+        if (date.year >= 1900 && date.year <= 2100 &&
+            date.month >= 1 && date.month <= 12 &&
+            date.day >= 1 && date.day <= 31) {
+            date.valid = true;
+        }
+    } catch (...) {
+        date.valid = false;
+    }
+
+    return date;
+}
+
+// Get file modification time as fallback
+static ImageDate get_file_date(const std::string& file_path) {
+    ImageDate date;
+    date.valid = false;
+
+    try {
+#ifdef _WIN32
+        // Convert UTF-8 to wide string
+        int width = MultiByteToWideChar(CP_UTF8, 0, file_path.c_str(), -1, nullptr, 0);
+        if (width > 0) {
+            std::wstring wide_path(width - 1, 0);
+            MultiByteToWideChar(CP_UTF8, 0, file_path.c_str(), -1, &wide_path[0], width);
+
+            WIN32_FILE_ATTRIBUTE_DATA file_attr;
+            if (GetFileAttributesExW(wide_path.c_str(), GetFileExInfoStandard, &file_attr)) {
+                // Convert FILETIME to year/month/day
+                FILETIME ft = file_attr.ftLastWriteTime;
+
+                // Convert to SYSTEMTIME
+                SYSTEMTIME st;
+                if (FileTimeToSystemTime(&ft, &st)) {
+                    date.year = st.wYear;
+                    date.month = st.wMonth;
+                    date.day = st.wDay;
+                    date.valid = true;
+                }
+            }
+        }
+#else
+        // Use std::filesystem for non-Windows
+        auto ftime = std::filesystem::last_write_time(file_path);
+        // Convert file_time_type to system_clock
+        auto sctp = std::chrono::time_point_cast<std::chrono::system_clock::duration>(
+            ftime - std::filesystem::file_time_type::clock::now() +
+            std::chrono::system_clock::now()
+        );
+        auto time_t_val = std::chrono::system_clock::to_time_t(sctp);
+        std::tm* tm_val = std::localtime(&time_t_val);
+        if (tm_val) {
+            date.year = tm_val->tm_year + 1900;
+            date.month = tm_val->tm_mon + 1;
+            date.day = tm_val->tm_mday;
+            date.valid = true;
+        }
+#endif
+    } catch (...) {
+        date.valid = false;
+    }
+
+    return date;
+}
+
+// Extract date from image file (EXIF preferred, file time fallback)
+ImageDate extract_image_date(const std::string& file_path) {
+    // First, try to read file and extract EXIF date
+    auto file_data = read_file_to_memory(file_path);
+
+    if (!file_data.empty()) {
+        std::string date_str = get_exif_date_string(file_data.data(), static_cast<int>(file_data.size()));
+        if (!date_str.empty()) {
+            ImageDate date = parse_exif_date_string(date_str);
+            if (date.valid) {
+                return date;
+            }
+        }
+    }
+
+    // Fallback to file modification time
+    return get_file_date(file_path);
 }
 
 // Apply EXIF orientation transformation to image pixels

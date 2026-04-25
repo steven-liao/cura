@@ -212,38 +212,75 @@ void CuraApp::bind_callbacks() {
             win->set_total_save(slint::SharedString(save_str));
             win->set_can_undo(can_undo());
 
-            // Update duplicate groups model
-            auto model = std::make_shared<slint::VectorModel<DuplicateGroupData>>();
-            for (const auto& g : duplicate_groups_) {
-                DuplicateGroupData data;
-                data.best_file = slint::SharedString(path_to_utf8(std::filesystem::path(g.best_file)));
-                data.save_size = slint::SharedString(format_size(g.save_size));
-                data.is_visual = g.is_visual_duplicate;
-                data.similarity_score = static_cast<int>(g.similarity_score);
-
-                auto files_model = std::make_shared<slint::VectorModel<slint::SharedString>>();
-                for (const auto& file : g.files) {
-                    files_model->push_back(slint::SharedString(path_to_utf8(std::filesystem::path(file))));
-                }
-                data.files = files_model;
-
-                // Create display-files model (max 3 for card display)
-                auto display_model = std::make_shared<slint::VectorModel<slint::SharedString>>();
-                const size_t max_display = 3;
-                for (size_t i = 0; i < g.files.size() && i < max_display; ++i) {
-                    display_model->push_back(slint::SharedString(path_to_utf8(std::filesystem::path(g.files[i]))));
-                }
-                data.display_files = display_model;
-
-                model->push_back(data);
-            }
-            win->set_duplicate_groups(model);
+            duplicate_groups_model_ = build_duplicate_groups_model();
+            win->set_duplicate_groups(duplicate_groups_model_);
+            const uint64_t generation = ++review_model_generation_;
+            populate_review_thumbnails_async(generation);
         }
     });
 
     // Bind undo callback
     win->on_undo_last([this]() {
         undo_last_operation();
+    });
+
+    // --- Organize callbacks ---
+
+    // Bind organize-add-folder callback
+    win->on_organize_add_folder([this]() {
+        std::string folder = open_folder_dialog();
+        if (!folder.empty()) {
+            organize_add_folder(folder);
+            // Update organize folder list in UI
+            auto win = *window_;
+            auto model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+            for (const auto& folder : organize_folders_) {
+                model->push_back(slint::SharedString(folder));
+            }
+            win->set_organize_folders(model);
+        }
+    });
+
+    // Bind organize-remove-folder callback
+    win->on_organize_remove_folder([this](slint::SharedString folder) {
+        organize_remove_folder(std::string(folder));
+        // Update organize folder list in UI
+        auto win = *window_;
+        auto model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+        for (const auto& folder : organize_folders_) {
+            model->push_back(slint::SharedString(folder));
+        }
+        win->set_organize_folders(model);
+    });
+
+    // Bind organize-set-granularity callback
+    win->on_organize_set_granularity([this](slint::SharedString granularity) {
+        organize_set_granularity(std::string(granularity));
+    });
+
+    // Bind organize-select-target-folder callback
+    win->on_organize_select_target_folder([this]() {
+        std::string folder = open_folder_dialog();
+        if (!folder.empty()) {
+            organize_set_target_folder(folder);
+            auto win = *window_;
+            win->set_organize_target_folder(slint::SharedString(folder));
+        }
+    });
+
+    // Bind organize-start callback
+    win->on_organize_start([this]() {
+        organize_start();
+    });
+
+    // Bind organize-cancel callback
+    win->on_organize_cancel([this]() {
+        organize_cancel();
+    });
+
+    // Bind organize-undo callback
+    win->on_organize_undo([this]() {
+        organize_undo();
     });
 }
 
@@ -286,6 +323,95 @@ void CuraApp::update_folder_list_ui() {
     win->set_selected_folders(model);
 }
 
+std::shared_ptr<slint::VectorModel<DuplicateGroupData>> CuraApp::build_duplicate_groups_model() const {
+    auto model = std::make_shared<slint::VectorModel<DuplicateGroupData>>();
+
+    for (const auto& group : duplicate_groups_) {
+        DuplicateGroupData data;
+        data.best_file = slint::SharedString(path_to_utf8(std::filesystem::path(group.best_file)));
+        data.save_size = slint::SharedString(format_size(group.save_size));
+        data.is_visual = group.is_visual_duplicate;
+        data.similarity_score = static_cast<int>(group.similarity_score);
+
+        auto files_model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+        for (const auto& file : group.files) {
+            files_model->push_back(slint::SharedString(path_to_utf8(std::filesystem::path(file))));
+        }
+        data.files = files_model;
+
+        auto display_model = std::make_shared<slint::VectorModel<slint::SharedString>>();
+        const size_t max_display = 3;
+        for (size_t i = 0; i < group.files.size() && i < max_display; ++i) {
+            display_model->push_back(slint::SharedString(path_to_utf8(std::filesystem::path(group.files[i]))));
+        }
+        data.display_files = display_model;
+
+        model->push_back(data);
+    }
+
+    return model;
+}
+
+void CuraApp::populate_review_thumbnails_async(uint64_t generation) {
+    auto model = duplicate_groups_model_;
+    if (!model) {
+        return;
+    }
+
+    std::vector<std::pair<int, std::string>> thumbnail_jobs;
+    thumbnail_jobs.reserve(duplicate_groups_.size());
+    for (size_t i = 0; i < duplicate_groups_.size(); ++i) {
+        thumbnail_jobs.emplace_back(static_cast<int>(i), duplicate_groups_[i].best_file);
+    }
+
+    std::thread([this, generation, model, thumbnail_jobs = std::move(thumbnail_jobs)]() mutable {
+        CuraImageProcessor img_proc;
+
+        for (const auto& [row_index, file_path] : thumbnail_jobs) {
+            if (generation != review_model_generation_) {
+                return;
+            }
+
+            ImageData thumb = img_proc.generate_thumbnail(file_path, 64);
+            if (!thumb.valid || thumb.channels < 3) {
+                continue;
+            }
+
+            slint::invoke_from_event_loop([this, generation, model, row_index, thumb = std::move(thumb)]() mutable {
+                if (generation != review_model_generation_ || duplicate_groups_model_ != model) {
+                    return;
+                }
+
+                auto row = model->row_data(row_index);
+                if (!row.has_value()) {
+                    return;
+                }
+
+                auto data = row.value();
+                if (thumb.channels == 3) {
+                    slint::SharedPixelBuffer<slint::Rgb8Pixel> buffer(
+                        static_cast<uint32_t>(thumb.width),
+                        static_cast<uint32_t>(thumb.height),
+                        reinterpret_cast<slint::Rgb8Pixel*>(thumb.pixels.data())
+                    );
+                    data.thumbnail = slint::Image(buffer);
+                } else if (thumb.channels == 4) {
+                    slint::SharedPixelBuffer<slint::Rgba8Pixel> buffer(
+                        static_cast<uint32_t>(thumb.width),
+                        static_cast<uint32_t>(thumb.height),
+                        reinterpret_cast<slint::Rgba8Pixel*>(thumb.pixels.data())
+                    );
+                    data.thumbnail = slint::Image(buffer);
+                } else {
+                    return;
+                }
+
+                model->set_row_data(row_index, data);
+            });
+        }
+    }).detach();
+}
+
 const std::vector<std::string>& CuraApp::get_folders() const {
     return selected_folders_;
 }
@@ -317,6 +443,7 @@ void CuraApp::start_scan(bool enable_visual, uint64_t similarity_threshold) {
     auto win = *window_;
     win->set_current_view(slint::SharedString("progress"));
     win->set_scan_progress(0.0);
+    win->set_scan_status(slint::SharedString("Scanning Photos..."));
     win->set_files_scanned(0);
     win->set_total_files(0);
 
@@ -339,6 +466,7 @@ void CuraApp::run_scan_thread(bool enable_visual, uint64_t similarity_threshold,
                 double progress = scan_progress_ * 0.3;
                 slint::invoke_from_event_loop([this, progress, current, total]() {
                     if (window_.has_value()) {
+                        (*window_)->set_scan_status(slint::SharedString("Scanning Photos..."));
                         (*window_)->set_scan_progress(progress);
                         (*window_)->set_files_scanned(static_cast<int>(current));
                         (*window_)->set_total_files(static_cast<int>(total));
@@ -398,6 +526,7 @@ void CuraApp::run_scan_thread(bool enable_visual, uint64_t similarity_threshold,
                 double progress = scan_progress_;
                 slint::invoke_from_event_loop([this, progress]() {
                     if (window_.has_value()) {
+                        (*window_)->set_scan_status(slint::SharedString("Hashing Photos..."));
                         (*window_)->set_scan_progress(progress);
                     }
                 });
@@ -414,7 +543,36 @@ void CuraApp::run_scan_thread(bool enable_visual, uint64_t similarity_threshold,
         }
 
         // Phase 3: Cluster duplicates
-        duplicate_groups_ = clusterer_.cluster(hashes, enable_visual, similarity_threshold);
+        slint::invoke_from_event_loop([this]() {
+            if (window_.has_value()) {
+                (*window_)->set_scan_status(slint::SharedString("Finding Duplicate Groups..."));
+                (*window_)->set_scan_progress(0.9f);
+                (*window_)->set_files_scanned(0);
+                (*window_)->set_total_files(0);
+            }
+        });
+
+        duplicate_groups_ = clusterer_.cluster(
+            hashes,
+            enable_visual,
+            similarity_threshold,
+            [this](size_t current, size_t total) {
+                if (cancelled_) return;
+
+                const double clustering_progress =
+                    total > 0 ? static_cast<double>(current) / total : 1.0;
+                const double progress = 0.9 + clustering_progress * 0.1;
+
+                slint::invoke_from_event_loop([this, progress, current, total]() {
+                    if (window_.has_value()) {
+                        (*window_)->set_scan_status(slint::SharedString("Finding Duplicate Groups..."));
+                        (*window_)->set_scan_progress(progress);
+                        (*window_)->set_files_scanned(static_cast<int>(current));
+                        (*window_)->set_total_files(static_cast<int>(total));
+                    }
+                });
+            }
+        );
 
         std::cout << "=== SCAN RESULTS ===" << std::endl;
         std::cout << "Total files scanned: " << images.size() << std::endl;
@@ -467,56 +625,18 @@ void CuraApp::run_scan_thread(bool enable_visual, uint64_t similarity_threshold,
                 (*window_)->set_total_groups(group_count);
                 (*window_)->set_total_save(slint::SharedString(save_str));
                 (*window_)->set_can_undo(can_undo());
+                duplicate_groups_model_ = std::make_shared<slint::VectorModel<DuplicateGroupData>>();
+                (*window_)->set_duplicate_groups(duplicate_groups_model_);
+            }
+        });
 
-                // Populate duplicate groups model
-                auto model = std::make_shared<slint::VectorModel<DuplicateGroupData>>();
-                CuraImageProcessor img_proc;
-                for (const auto& group : duplicate_groups_) {
-                    DuplicateGroupData data;
-                    data.best_file = slint::SharedString(path_to_utf8(std::filesystem::path(group.best_file)));
-                    data.save_size = slint::SharedString(format_size(group.save_size));
-                    data.is_visual = group.is_visual_duplicate;
-                    data.similarity_score = static_cast<int>(group.similarity_score);
-
-                    // Create files model (all files for popup)
-                    auto files_model = std::make_shared<slint::VectorModel<slint::SharedString>>();
-                    for (const auto& file : group.files) {
-                        files_model->push_back(slint::SharedString(path_to_utf8(std::filesystem::path(file))));
-                    }
-                    data.files = files_model;
-
-                    // Create display-files model (max 3 for card display)
-                    auto display_model = std::make_shared<slint::VectorModel<slint::SharedString>>();
-                    const size_t max_display = 3;
-                    for (size_t i = 0; i < group.files.size() && i < max_display; ++i) {
-                        display_model->push_back(slint::SharedString(path_to_utf8(std::filesystem::path(group.files[i]))));
-                    }
-                    data.display_files = display_model;
-
-                    // Generate thumbnail
-                    ImageData thumb = img_proc.generate_thumbnail(group.best_file, 64);
-                    if (thumb.valid && thumb.channels >= 3) {
-                        // Convert to Slint image
-                        if (thumb.channels == 3) {
-                            slint::SharedPixelBuffer<slint::Rgb8Pixel> buffer(
-                                static_cast<uint32_t>(thumb.width),
-                                static_cast<uint32_t>(thumb.height),
-                                reinterpret_cast<slint::Rgb8Pixel*>(thumb.pixels.data())
-                            );
-                            data.thumbnail = slint::Image(buffer);
-                        } else if (thumb.channels == 4) {
-                            slint::SharedPixelBuffer<slint::Rgba8Pixel> buffer(
-                                static_cast<uint32_t>(thumb.width),
-                                static_cast<uint32_t>(thumb.height),
-                                reinterpret_cast<slint::Rgba8Pixel*>(thumb.pixels.data())
-                            );
-                            data.thumbnail = slint::Image(buffer);
-                        }
-                    }
-
-                    model->push_back(data);
-                }
-                (*window_)->set_duplicate_groups(model);
+        const uint64_t generation = ++review_model_generation_;
+        slint::invoke_from_event_loop([this, generation]() {
+            if (window_.has_value()) {
+                auto review_model = build_duplicate_groups_model();
+                duplicate_groups_model_ = review_model;
+                (*window_)->set_duplicate_groups(review_model);
+                populate_review_thumbnails_async(generation);
             }
             scanning_ = false;
         });
@@ -611,6 +731,186 @@ std::string CuraApp::format_size(uint64_t bytes) const {
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(1) << size << " " << units[unit];
     return oss.str();
+}
+
+// --- Organize by Date Implementation ---
+
+void CuraApp::organize_add_folder(const std::string& folder_path) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    if (std::filesystem::exists(folder_path) &&
+        std::filesystem::is_directory(folder_path)) {
+        if (std::find(organize_folders_.begin(), organize_folders_.end(),
+                      folder_path) == organize_folders_.end()) {
+            organize_folders_.push_back(folder_path);
+        }
+    }
+}
+
+void CuraApp::organize_remove_folder(const std::string& folder_path) {
+    std::lock_guard<std::mutex> lock(state_mutex_);
+
+    auto it = std::find(organize_folders_.begin(), organize_folders_.end(),
+                        folder_path);
+    if (it != organize_folders_.end()) {
+        organize_folders_.erase(it);
+    }
+}
+
+const std::vector<std::string>& CuraApp::get_organize_folders() const {
+    return organize_folders_;
+}
+
+void CuraApp::organize_set_granularity(const std::string& granularity) {
+    organize_granularity_ = granularity;
+}
+
+const std::string& CuraApp::get_organize_granularity() const {
+    return organize_granularity_;
+}
+
+void CuraApp::organize_set_target_folder(const std::string& folder) {
+    organize_target_folder_ = folder;
+}
+
+const std::string& CuraApp::get_organize_target_folder() const {
+    return organize_target_folder_;
+}
+
+void CuraApp::organize_start() {
+    if (organize_folders_.empty() || organize_target_folder_.empty() || organizing_) {
+        return;
+    }
+
+    // Convert granularity string to enum
+    DateGranularity granularity = DateGranularity::MONTH;
+    if (organize_granularity_ == "year") {
+        granularity = DateGranularity::YEAR;
+    } else if (organize_granularity_ == "day") {
+        granularity = DateGranularity::DAY;
+    }
+
+    organizing_ = true;
+    organize_cancelled_ = false;
+    organize_files_processed_ = 0;
+    organize_current_file_ = "";
+
+    // Update UI
+    auto win = *window_;
+    win->set_organizing(true);
+    win->set_organize_files_processed(0);
+    win->set_organize_total_files(0);
+    win->set_organize_current_file(slint::SharedString(""));
+
+    // Start organize thread
+    organize_thread_ = std::thread(&CuraApp::run_organize_thread, this,
+                                    organize_folders_, organize_target_folder_,
+                                    granularity);
+}
+
+void CuraApp::organize_cancel() {
+    organize_cancelled_ = true;
+}
+
+bool CuraApp::organize_undo() {
+    if (!organize_can_undo()) {
+        return false;
+    }
+
+    bool success = file_ops_.undo_last_operation();
+
+    if (success) {
+        auto win = *window_;
+        win->set_organize_can_undo(false);
+        win->set_organize_files_processed(0);
+    }
+
+    return success;
+}
+
+bool CuraApp::organize_can_undo() const {
+    return file_ops_.can_undo();
+}
+
+double CuraApp::get_organize_progress() const {
+    int total = organize_total_files_;
+    if (total == 0) return 0.0;
+    return static_cast<double>(organize_files_processed_) / static_cast<double>(total);
+}
+
+void CuraApp::run_organize_thread(const std::vector<std::string>& folders,
+                                   const std::string& target_dir,
+                                   DateGranularity granularity) {
+    // Collect all image files from source folders
+    std::vector<std::string> all_files;
+    std::vector<std::string> image_extensions = {
+        ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".webp", ".tiff", ".tif",
+        ".jfif", ".heic", ".cr2", ".nef", ".arw"
+    };
+
+    for (const auto& folder : folders) {
+        try {
+            for (const auto& entry : std::filesystem::recursive_directory_iterator(
+                folder, std::filesystem::directory_options::skip_permission_denied)) {
+
+                if (organize_cancelled_) break;
+
+                if (entry.is_regular_file()) {
+                    std::string ext = entry.path().extension().string();
+                    std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
+
+                    if (std::find(image_extensions.begin(), image_extensions.end(), ext)
+                        != image_extensions.end()) {
+                        all_files.push_back(path_to_utf8(entry.path()));
+                    }
+                }
+            }
+        } catch (const std::filesystem::filesystem_error&) {
+            // Skip folders with errors
+        }
+    }
+
+    organize_total_files_ = static_cast<int>(all_files.size());
+
+    // Update UI with total count
+    slint::invoke_from_event_loop([this, total = all_files.size()]() {
+        auto win = *window_;
+        win->set_organize_total_files(static_cast<int>(total));
+    });
+
+    // Progress callback
+    auto progress_cb = [this](size_t current, size_t total, const std::string& current_file) {
+        organize_files_processed_ = static_cast<int>(current);
+        organize_current_file_ = current_file;
+
+        // Update UI periodically
+        if (current % 10 == 0 || current == total) {
+            slint::invoke_from_event_loop([this, current, total, current_file]() {
+                auto win = *window_;
+                win->set_organize_files_processed(static_cast<int>(current));
+                win->set_organize_current_file(slint::SharedString(current_file));
+            });
+        }
+    };
+
+    // Run organize operation
+    OperationResult result = file_ops_.organize_by_date(all_files, target_dir,
+                                                         granularity, progress_cb);
+
+    // Finalize
+    organizing_ = false;
+
+    slint::invoke_from_event_loop([this, result]() {
+        auto win = *window_;
+        win->set_organizing(false);
+        win->set_organize_files_processed(static_cast<int>(result.affected_files.size()));
+        win->set_organize_can_undo(file_ops_.can_undo());
+        win->set_organize_current_file(slint::SharedString(""));
+
+        if (!result.success && !result.error_message.empty()) {
+            // Could show error message in UI
+        }
+    });
 }
 
 } // namespace cura

@@ -225,13 +225,14 @@ component DuplicatePopup inherits Rectangle {
 
     // Clamp popup position to stay within screen bounds
     // Position overlapping the card by 10px to ensure smooth hover transition
-    property <length> popup-x: show-on-left ? card-x - 200px + 10px : card-x + estimated-card-width - 10px;
+    property <length> popup-width: 320px;
+    property <length> popup-x: show-on-left ? card-x - popup-width + 10px : card-x + estimated-card-width - 10px;
     // Align popup top with card top
     property <length> popup-y: card-y;
 
-    x: Math.max(4px, Math.min(popup-x, container-width - 210px));
+    x: Math.max(4px, Math.min(popup-x, container-width - popup-width - 10px));
     y: Math.max(80px, Math.min(popup-y, container-height - 160px));
-    width: 200px;
+    width: popup-width;
     height: 150px;
 
     visible: show && file-count > 0;
@@ -316,7 +317,8 @@ export component CuraReview inherits Rectangle {
 
     property <int> grid-cols: Math.max(1, Math.min(6, round((self.width / 1px - 80) / 232)));
     property <int> hovered-card-id: -1;
-    property <DuplicateGroupData> popup-data: {
+    property <int> active-popup-id: -1;
+    property <DuplicateGroupData> empty-popup-data: {
         files: [],
         display-files: [],
         best-file: "",
@@ -325,6 +327,7 @@ export component CuraReview inherits Rectangle {
         similarity-score: 0,
         thumbnail: @image-url("")
     };
+    property <DuplicateGroupData> popup-data: root.empty-popup-data;
 
     // Popup will expose its hover state via is-hovered property
 
@@ -413,9 +416,14 @@ export component CuraReview inherits Rectangle {
                             hovered-changed(id, is-hover) => {
                                 if is-hover {
                                     root.hovered-card-id = id;
+                                    root.active-popup-id = id;
                                     root.popup-data = group-data;
                                 } else if root.hovered-card-id == id {
                                     root.hovered-card-id = -1;
+                                    if root.active-popup-id == id && !popup.popup-is-hovered {
+                                        root.active-popup-id = -1;
+                                        root.popup-data = root.empty-popup-data;
+                                    }
                                 }
                             }
                         }
@@ -483,11 +491,18 @@ export component CuraReview inherits Rectangle {
 
         popup := DuplicatePopup {
             group-data: root.popup-data;
-            group-id: root.hovered-card-id;
+            group-id: root.active-popup-id;
             grid-cols: root.grid-cols;
             container-width: root.width;
             container-height: root.height;
-            show: root.popup-data.files.length > 3 && (root.hovered-card-id >= 0 || self.popup-is-hovered);
+            show: root.active-popup-id >= 0 && root.popup-data.files.length > 3;
+
+            changed popup-is-hovered => {
+                if !self.popup-is-hovered && root.hovered-card-id != root.active-popup-id {
+                    root.active-popup-id = -1;
+                    root.popup-data = root.empty-popup-data;
+                }
+            }
         }
     }
 }

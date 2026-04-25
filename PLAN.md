@@ -237,24 +237,24 @@ public:
   - **Known Issue:** Hover transition from card to popup has timing flickering (race condition between card unhover and popup hover)
 - Undo support for deletions
 
-### Slint Component Structure
+### Slint Component Structure (Implemented)
 ```
 ui/
-├── cura_main.slint          # Main window, navigation
+├── cura_main.slint          # Main window with 3-screen navigation ✅
 ├── components/
-│   ├── cura_setup.slint     # Folder selection + scan options
-│   ├── cura_progress.slint  # Animated progress with stats
-│   ├── cura_review.slint    # Duplicate group review
-│   ├── cura_thumbnail.slint # Thumbnail display component
-│   ├── cura_preview.slint   # Full image preview modal
-│   ├── cura_group.slint     # Duplicate group card
-│   ├── cura_toolbar.slint   # Actions toolbar
-│   └── cura_folder_picker.slint # Folder selection dialog
+│   ├── cura_setup.slint     # Folder selection + scan options ✅
+│   ├── cura_progress.slint  # Animated progress with stats ✅
+│   ├── cura_review.slint    # Duplicate group review with hover popup ✅
+│   ├── cura_thumbnail.slint # Thumbnail display component ✅ (standalone)
+│   ├── cura_preview.slint   # Full image preview modal ✅ (standalone, not integrated)
+│   ├── cura_group.slint     # Duplicate group card ✅ (standalone, not used in main)
+│   ├── cura_toolbar.slint   # Actions toolbar ✅ (standalone)
+│   └── cura_folder_picker.slint # Folder selection dialog ✅ (standalone)
 ├── themes/
-│   ├── cura_dark.slint      # Dark theme colors
-│   └── cura_animations.slint # Shared animations
+│   ├── cura_theme.slint     # Dark theme colors ✅
+│   └── cura_animations.slint # Shared animations ✅
 └── models/
-    └── cura_models.slint    # Data models
+    └── cura_models.slint    # Data models (DuplicateGroupData, etc.) ✅
 ```
 
 ---
@@ -383,53 +383,68 @@ cura/
 
 Using **Catch2** for C++ unit testing.
 
+**Current Status:** 13/13 tests passing ✅
+
+### Test Coverage
+| Test File | Tests | Status | Notes |
+|-----------|-------|--------|-------|
+| test_scanner.cpp | 2 | ✅ | Default formats, custom formats (no actual scan tests) |
+| test_hasher.cpp | 2 | ✅ | Initialization, hamming distance (no hash computation tests) |
+| test_clusterer.cpp | 3 | ✅ | Empty input, exact hash grouping, stats (no visual grouping tests) |
+| test_fileops.cpp | 3 | ✅ | Initialization, directory creation, execute/undo |
+| test_image.cpp | 3 | ✅ | Initialization, grayscale conversion, EXIF rotations |
+
 ### Test Coverage Goals
-| Component | Target Coverage |
-|-----------|-----------------|
-| CuraScanner | 80% |
-| CuraHasher | 90% |
-| CuraClusterer | 85% |
-| CuraFileOps | 90% |
-| CuraImageProcessor | 75% |
+| Component | Target Coverage | Current |
+|-----------|-----------------|---------|
+| CuraScanner | 80% | ~40% (no scan workflow tests) |
+| CuraHasher | 90% | ~30% (no hash computation tests) |
+| CuraClusterer | 85% | ~50% (no visual grouping tests) |
+| CuraFileOps | 90% | ~70% |
+| CuraImageProcessor | 75% | ~60% |
+
+**Gap:** No test fixtures with actual image files. Tests use mock data.
 
 ---
 
 ## Implementation Phases
 
-### Phase 1: Project Setup (Day 1)
-1. Create GitHub repository `cura`
-2. Set up `.gitignore` for C++/Slint project
-3. Initialize CMake build system with Slint integration
-4. Add Catch2 test framework
-5. Create basic folder structure
-6. Set up CI workflow (GitHub Actions)
+### Phase 1: Project Setup (Day 1) ✅ COMPLETE
+1. ✅ Create GitHub repository `cura`
+2. ✅ Set up `.gitignore` for C++/Slint project
+3. ✅ Initialize CMake build system with Slint integration
+4. ✅ Add Catch2 test framework
+5. ✅ Create basic folder structure
+6. ⏳ Set up CI workflow (GitHub Actions)
 
-### Phase 2: Core Engine (Week 1-2)
-1. Implement `CuraScanner` with parallel traversal
-2. Implement `CuraHasher` exact hash (xxHash) - mandatory
-3. Implement `CuraHasher` perceptual hash (pHash/dHash) - optional
-4. Implement `CuraClusterer` duplicate grouping
-5. Implement `CuraFileOps` (delete/move operations)
-6. Write unit tests for each component
+### Phase 2: Core Engine (Week 1-2) ✅ COMPLETE
+1. ✅ Implement `CuraScanner` with parallel traversal (magic byte verification, UTF-8 paths)
+2. ✅ Implement `CuraHasher` exact hash (xxHash streaming, 64KB chunks)
+3. ✅ Implement `CuraHasher` perceptual hash (simplified pHash/dHash)
+4. ✅ Implement `CuraClusterer` duplicate grouping (Union-Find, best file selection)
+5. ✅ Implement `CuraFileOps` (delete to Recycle Bin, move, undo for move)
+6. ✅ Write unit tests for each component (13 tests passing)
 
 ### Phase 3: UI Shell (Week 2-3) ✅ COMPLETE
-1. ✅ Create Slint UI components (setup, progress, review)
-2. ✅ Bind Slint components to C++ callbacks
-3. ✅ Implement thumbnail generation and caching
+1. ✅ Create Slint UI components (setup, progress, review, folder picker, toolbar, thumbnail, preview)
+2. ✅ Bind Slint components to C++ callbacks (folder selection, scan, delete, move, undo)
+3. ✅ Implement thumbnail generation with EXIF orientation and async loading
 4. ✅ Create duplicate group display with GridLayout (dynamic columns based on window width)
-5. ✅ Implement hover popup for viewing all duplicate files
-6. ✅ Add dark theme and animations
+5. ✅ Implement hover popup for viewing all duplicate files (positioned at window level)
+6. ✅ Add dark theme (cura_theme.slint) and animations
 7. ⏳ Fix hover popup transition timing (card-to-popup hover race condition)
 
 ### Phase 4: Polish & Testing (Week 3-4) 🔄 IN PROGRESS
-1. ⏳ Add visual similarity comparison view
-2. ✅ Implement undo functionality
+1. ✅ Visual similarity detection implemented (simplified pHash, optional toggle in setup)
+2. ✅ Implement undo functionality (works for move; delete uses Recycle Bin - manual restore only)
 3. ⏳ Add keyboard shortcuts
-4. ✅ Run full test suite (12/12 tests passing)
+4. ✅ Run full test suite (13/13 tests passing)
 5. ⏳ Fix hover popup card-to-popup transition
-6. ⏳ Performance profiling and optimization
-7. ⏳ Cross-platform testing (Windows, macOS, Linux)
+6. ⏳ Performance profiling and optimization (visual clustering is O(n^2))
+7. ⏳ Cross-platform testing (Windows working; macOS/Linux folder picker placeholder)
 8. ⏳ Write documentation (README, usage guide)
+9. ⏳ Export Report button (UI exists, callback not bound)
+10. ⏳ Preview modal integration (component exists, not in main flow)
 
 ---
 
@@ -445,14 +460,54 @@ cd build && ctest --output-on-failure
 
 ### Functional Testing
 1. **Exact duplicates:** Copy images, verify detection ✅
-2. **Visual duplicates:** Resize/compress images, verify detection (when enabled) ⏳
+2. **Visual duplicates:** Resize/compress images, verify detection (when enabled) ✅ (simplified pHash)
 3. **False positives:** Verify distinct images not grouped ✅
 4. **Large datasets:** Test with 10,000+ images ⏳
-5. **Folder selection:** Verify multi-folder scanning ✅
-6. **Delete operation:** Verify files moved to trash ✅
+5. **Folder selection:** Verify multi-folder scanning ✅ (Windows COM IFileOpenDialog)
+6. **Delete operation:** Verify files moved to trash ✅ (Windows Recycle Bin)
 7. **Move operation:** Verify files moved to target folder ✅
-8. **Undo:** Verify last operation can be undone ✅
+8. **Undo:** Verify last operation can be undone ⚠️ (Move undo works; Delete undo requires manual Recycle Bin restore)
 9. **Hover popup:** Display all files when hovering cards with >3 duplicates ✅ (transition timing issue ⏳)
+10. **Thumbnail display:** Verify thumbnails load with correct orientation ✅ (EXIF rotation applied)
+
+---
+
+## Current Feature Status
+
+### ✅ Fully Working
+| Feature | Description |
+|---------|-------------|
+| Folder Selection | Windows native folder picker via COM IFileOpenDialog |
+| Multi-folder Scan | Recursive directory traversal with magic byte verification |
+| Exact Hash Detection | xxHash streaming (64KB chunks) for fast duplicate detection |
+| Visual Similarity | Simplified pHash/dHash (optional, toggleable in setup) |
+| Thumbnail Display | Async loading, EXIF orientation, 64px size |
+| Duplicate Review | Responsive GridLayout, max 3 files shown per card |
+| Delete Operation | Windows Recycle Bin (safe delete) |
+| Move Operation | Move to folder with conflict handling |
+| Undo for Move | Restore moved files to original location |
+| Hover Popup | View all files in group (scrollable, positioned near card) |
+| Organize by Date | Organize photos into YYYY/MM/DD folders with EXIF date extraction |
+| Progress Display | Real-time stats (files/sec, ETA, current file) |
+| Cancel Scan | Stop scanning mid-process |
+
+### ⚠️ Partially Working
+| Feature | Issue |
+|---------|-------|
+| Undo for Delete | Files go to Recycle Bin but cannot be auto-restored |
+| Visual Hash | Simplified implementation (not full DCT-based pHash) |
+| Hover Popup Transition | Race condition when moving from card to popup |
+
+### ⏳ Not Implemented
+| Feature | Notes |
+|---------|-------|
+| Export Report | Button exists in UI, callback not bound |
+| Preview Modal | Component exists, not integrated into review flow |
+| Keyboard Shortcuts | Not implemented |
+| macOS/Linux Folder Picker | Placeholder returns empty string |
+| Individual File Selection | Review handles entire groups only |
+| Persistent Settings | Move target folder not saved |
+| Test Fixtures | No actual image files in tests |
 
 ---
 
@@ -473,10 +528,37 @@ cd build && ctest --output-on-failure
 3. Single shared TouchArea at parent level tracking mouse position
 4. Restructure so popup is child element but uses window coordinates
 
+### Undo Limitation for Delete Operations
+**Problem:** Deleted files cannot be auto-restored from Windows Recycle Bin.
+
+**Root Cause:** Windows Recycle Bin API doesn't provide programmatic restore capability. Files are moved to Recycle Bin with `SHFileOperationW`, but restoring requires user action.
+
+**Workaround:** Move operations support undo. For deleted files, users must manually restore from Recycle Bin.
+
+### Visual Similarity Performance
+**Problem:** Visual clustering is O(n²) pairwise comparison, slow for large datasets.
+
+**Root Cause:** Current implementation compares every image pair for similarity matching.
+
+**Potential Solutions:**
+1. Use BK-tree for similarity search
+2. Pre-filter by image dimensions/color histogram
+3. Limit visual comparison to exact hash groups only
+
+### Cross-Platform Folder Picker
+**Problem:** Folder picker only works on Windows (COM IFileOpenDialog).
+
+**Current State:** macOS/Linux implementations return empty string (placeholder).
+
+**Solution Needed:** Implement native folder picker for macOS (NSOpenPanel) and Linux (GTK/Qt dialog).
+
 ### Slint UI Limitations Discovered
 - **z-index:** Only works within same parent container, not across GridLayout siblings
 - **`if` in callbacks:** Cannot use `if` statements inside `changed` callbacks
 - **Boolean operators:** Cannot use `&&` or `||` in Slint `if` conditions directly
+- **Callback timing:** `changed` callbacks fire asynchronously, causing race conditions
+- **Property access:** Nested TouchArea properties require specific binding syntax
+- **No timers:** No built-in timer/delay mechanism for debouncing events
 - **Callback timing:** `changed` callbacks fire asynchronously, causing race conditions
 - **Property access:** Nested TouchArea properties require specific binding syntax
 
@@ -490,3 +572,150 @@ cd build && ctest --output-on-failure
 | Virtual scrolling in Slint | Use built-in `ListView` with lazy loading |
 | **Hover popup timing** | **Current issue:** Race condition between card losing hover and popup gaining hover. **Potential fixes:** Timer-based delay, larger overlap area, or restructure TouchArea hierarchy |
 | **z-index limitations** | **Workaround:** Render popup at window level with calculated position instead of inside GridLayout |
+
+---
+
+## Feature: Organize Photos by Date ✅ COMPLETE
+
+### Overview
+Organize ALL photos from selected folders into date-based folder structures. Separate workflow from duplicate detection - organizes all files, not just duplicates.
+
+**Status:** Fully implemented and working.
+
+**Implementation Summary:**
+- `ui/components/cura_organize.slint` - Organize screen with folder selection, granularity (Year/Month/Day), progress display
+- `src/core/cura_fileops.hpp/cpp` - `DateGranularity` enum, `organize_by_date()` with name conflict handling and undo
+- `src/core/cura_image.hpp/cpp` - `ImageDate` struct, `extract_image_date()` with EXIF (0x9003/0x0132) and file time fallback
+- `src/ui/cura_app.hpp/cpp` - Organize workflow callbacks, background thread, progress updates
+- `ui/cura_main.slint` - Navigation tabs (Scan/Organize), property bindings, callback wiring
+- **Fix:** Granularity callback wired to both Slint property and C++ callback for proper state sync
+
+**Key Requirements:**
+- Organize ALL files from selected folders by date (not just duplicates)
+- Create date-based folder structure: Year, Month, or Day granularity
+- Default granularity: Month (pre-configured setting)
+- User selects target base folder each time when organizing
+- Handle name conflicts: files from different folders with same name get postfix (e.g., `photo_1.jpg`)
+- Dedicated screen for this feature (separate from deduplication workflow)
+
+### Design
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      New Organize Screen                         │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Select source folders (same pattern as Setup screen)       ││
+│  │  Granularity setting: [Year] [Month (default)] [Day]        ││
+│  │  [Start Organize] button                                    ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Progress: Files organized, current file, speed, ETA        ││
+│  │  [Cancel] button                                            ││
+│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Results: Files organized by date, folder structure preview ││
+│  │  [Undo] button                                              ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Implementation Details
+
+#### 1. UI Changes
+
+| File | Action | Changes |
+|------|--------|---------|
+| `ui/components/cura_organize.slint` | **CREATE** | New organize screen component with folder selection, granularity selector, progress display |
+| `ui/cura_main.slint` | MODIFY | Add screen switching for "organize" screen, new callbacks |
+| `ui/models/cura_models.slint` | MODIFY | Add DateGranularity model |
+
+#### 2. Backend Changes
+
+| File | Action | Changes |
+|------|--------|---------|
+| `src/core/cura_fileops.hpp` | MODIFY | Add `DateGranularity` enum, `organize_by_date()` method |
+| `src/core/cura_fileops.cpp` | MODIFY | Implement organize logic with name conflict handling |
+| `src/core/cura_image.hpp` | MODIFY | Add `ImageDate` struct, `extract_image_date()` method |
+| `src/core/cura_image.cpp` | MODIFY | Extend EXIF parser to extract date tags (0x9003, 0x0132) |
+| `src/ui/cura_app.hpp` | MODIFY | Add organize workflow methods |
+| `src/ui/cura_app.cpp` | MODIFY | Bind callbacks, implement organize background thread |
+
+#### 3. Date Extraction
+
+**EXIF Tags (priority order):**
+- 0x9003 (DateTimeOriginal) - when photo was taken (primary)
+- 0x0132 (DateTime) - when file was last modified (secondary)
+- Fallback: `std::filesystem::last_write_time()` if no EXIF date
+
+**Format:** `"YYYY:MM:DD HH:MM:SS"`
+
+#### 4. Folder Structure
+
+| Granularity | Folder Path |
+|-------------|-------------|
+| Year | `target/2024/photo.jpg` |
+| Month | `target/2024/03/photo.jpg` (default) |
+| Day | `target/2024/03/15/photo.jpg` |
+
+#### 5. Name Conflict Handling
+
+Files from different source folders with same name:
+```cpp
+// photo.jpg -> photo_1.jpg -> photo_2.jpg
+int counter = 1;
+while (exists(target_path)) {
+    target_path = folder / (stem + "_" + counter + extension);
+    counter++;
+}
+```
+
+#### 6. Edge Cases
+
+| Case | Handling |
+|------|----------|
+| No EXIF date | Fallback to file modification time |
+| Invalid date | Move to "undated" folder |
+| Same filename in target | Add postfix counter |
+| Cross-drive move | Copy + delete fallback |
+| Permission denied | Skip file, log error, continue |
+| Cancel mid-operation | Stop, keep completed moves, enable partial undo |
+| UTF-8/Chinese filenames | Use existing `utf8_to_path()` helper |
+
+#### 7. Data Flow
+
+```
+User selects source folders → Sets granularity → Clicks Start
+        ↓
+Folder picker for target base directory
+        ↓
+CuraApp::start_organize(folders, target, granularity)
+        ↓
+Collect all image files from source folders
+        ↓
+Background thread: For each file:
+    extract_image_date() → EXIF or file time
+    generate_date_folder() → YYYY/MM or YYYY/MM/DD
+    ensure_directory_exists()
+    move file with conflict handling
+    track in moved_files_ for undo
+    report progress
+        ↓
+UI: Progress updates → Complete → Enable Undo
+```
+
+#### 8. Verification
+
+1. Build: `cmake --build build --config Release`
+2. Tests: `ctest --test-dir build --output-on-failure -C Release`
+3. Manual testing:
+   - Test each granularity (Year/Month/Day)
+   - Test name conflict handling
+   - Test undo functionality
+   - Test with Chinese filenames
+   - Test cancel mid-operation
+
+#### 9. Implementation Sequence
+
+**Day 1:** Backend core - DateGranularity enum, date extraction, organize_by_date implementation
+**Day 2:** UI + Integration - Create organize screen, bind callbacks, implement workflow thread
+**Day 3:** Testing + Polish - Unit tests, manual testing, error handling refinements

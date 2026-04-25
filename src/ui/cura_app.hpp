@@ -98,6 +98,72 @@ public:
      */
     bool can_undo() const;
 
+    // --- Organize by Date Feature ---
+
+    /**
+     * @brief Add a folder to organize list
+     * @param folder_path Folder path
+     */
+    void organize_add_folder(const std::string& folder_path);
+
+    /**
+     * @brief Remove a folder from organize list
+     * @param folder_path Folder path
+     */
+    void organize_remove_folder(const std::string& folder_path);
+
+    /**
+     * @brief Get organize folders
+     */
+    const std::vector<std::string>& get_organize_folders() const;
+
+    /**
+     * @brief Set date granularity for organizing
+     * @param granularity "year", "month", or "day"
+     */
+    void organize_set_granularity(const std::string& granularity);
+
+    /**
+     * @brief Get date granularity
+     */
+    const std::string& get_organize_granularity() const;
+
+    /**
+     * @brief Set organize target folder
+     * @param folder Target folder path
+     */
+    void organize_set_target_folder(const std::string& folder);
+
+    /**
+     * @brief Get organize target folder
+     */
+    const std::string& get_organize_target_folder() const;
+
+    /**
+     * @brief Start organizing files by date
+     */
+    void organize_start();
+
+    /**
+     * @brief Cancel ongoing organize operation
+     */
+    void organize_cancel();
+
+    /**
+     * @brief Undo last organize operation
+     */
+    bool organize_undo();
+
+    /**
+     * @brief Check if organize undo is available
+     */
+    bool organize_can_undo() const;
+
+    /**
+     * @brief Get organize progress (0.0 - 1.0)
+     */
+    double get_organize_progress() const;
+
     // --- Settings ---
 
     /**
@@ -134,8 +200,21 @@ private:
     uint64_t similarity_threshold_;
     std::string move_target_folder_;
     double scan_progress_;
+    std::string scan_status_{"Scanning Photos..."};
     std::atomic<bool> scanning_{false};
     std::atomic<bool> cancelled_{false};
+    std::atomic<uint64_t> review_model_generation_{0};
+
+    // Organize state
+    std::vector<std::string> organize_folders_;
+    std::string organize_granularity_{"month"};
+    std::string organize_target_folder_;
+    std::atomic<bool> organizing_{false};
+    std::atomic<bool> organize_cancelled_{false};
+    std::atomic<int> organize_files_processed_{0};
+    std::atomic<int> organize_total_files_{0};
+    std::string organize_current_file_;
+    std::thread organize_thread_;
 
     // Slint window handle
     std::optional<slint::ComponentHandle<CuraMainWindow>> window_;
@@ -143,6 +222,7 @@ private:
     // Background scan thread
     std::thread scan_thread_;
     std::mutex state_mutex_;
+    std::shared_ptr<slint::VectorModel<DuplicateGroupData>> duplicate_groups_model_;
 
     // Internal helpers
     void update_folder_list();
@@ -150,7 +230,12 @@ private:
     void update_ui_state();
     void run_scan_thread(bool enable_visual, uint64_t similarity_threshold,
                          const std::vector<std::string>& folders);
+    void run_organize_thread(const std::vector<std::string>& folders,
+                              const std::string& target_dir,
+                              DateGranularity granularity);
     void bind_callbacks();
+    std::shared_ptr<slint::VectorModel<DuplicateGroupData>> build_duplicate_groups_model() const;
+    void populate_review_thumbnails_async(uint64_t generation);
     std::string format_size(uint64_t bytes) const;
 };
 

@@ -1,11 +1,14 @@
 /**
  * @file cura_fileops.cpp
- * @brief File operations implementation for handling duplicates
+ * @brief File operations implementation for handling duplicates and organizing by date
  */
 
 #include "cura_fileops.hpp"
+#include "cura_image.hpp"
 #include <filesystem>
 #include <fstream>
+#include <sstream>
+#include <iomanip>
 
 #ifdef _WIN32
 #include <windows.h>
@@ -237,6 +240,134 @@ bool CuraFileOps::restore_file(const std::string& original_path, const std::stri
         auto original = utf8_to_path(original_path);
         // Move back to original location
         std::filesystem::rename(current, original);
+        return true;
+    } catch (const std::filesystem::filesystem_error&) {
+        return false;
+    }
+}
+
+// Generate date-based folder path
+static std::string generate_date_folder(const std::string& base_dir,
+                                         const ImageDate& date,
+                                         DateGranularity granularity) {
+    std::ostringstream path;
+    path << base_dir << "/" << date.year;
+
+    if (granularity >= DateGranularity::MONTH) {
+        path << "/" << std::setw(2) << std::setfill('0') << date.month;
+    }
+    if (granularity >= DateGranularity::DAY) {
+        path << "/" << std::setw(2) << std::setfill('0') << date.day;
+    }
+
+    return path.str();
+}
+
+OperationResult CuraFileOps::organize_by_date(
+    const std::vector<std::string>& files,
+    const std::string& target_base_dir,
+    DateGranularity granularity,
+    ProgressCallback progress_cb
+) {
+    OperationResult result;
+    result.action = DuplicateAction::ORGANIZE_BY_DATE;
+    result.target_dir = target_base_dir;
+    result.granularity = granularity;
+    result.success = true;
+    result.affected_files.clear();
+    moved_files_.clear();
+
+    if (files.empty()) {
+        return result;
+    }
+
+    // Ensure base directory exists
+    if (!ensure_directory_exists(target_base_dir)) {
+        result.success = false;
+        result.error_message = "Cannot create target base directory: " + target_base_dir;
+        return result;
+    }
+
+    size_t total = files.size();
+    size_t current = 0;
+
+    // Process each file
+    for (const auto& file : files) {
+        ++current;
+
+        // Report progress
+        if (progress_cb) {
+            progress_cb(current, total, file);
+        }
+
+        bool success = move_file_to_date_folder(file, target_base_dir, granularity);
+
+        if (success) {
+            result.affected_files.push_back(file);
+        } else {
+            result.success = false;
+            // Continue processing other files even if one fails
+            result.error_message = "Failed to process: " + file;
+        }
+    }
+
+    // Store operation for undo
+    if (!result.affected_files.empty()) {
+        last_operation_ = result;
+    } else {
+        last_operation_.reset();
+        moved_files_.clear();
+    }
+
+    return result;
+}
+
+bool CuraFileOps::move_file_to_date_folder(const std::string& file,
+                                            const std::string& target_base_dir,
+                                            DateGranularity granularity) {
+    try {
+        auto source_path = utf8_to_path(file);
+        if (!std::filesystem::exists(source_path)) {
+            return false;
+        }
+
+        // Extract date from image
+        ImageDate date = extract_image_date(file);
+
+        if (!date.valid) {
+            // Move to "undated" folder if no valid date
+            std::string undated_folder = target_base_dir + "/undated";
+            ensure_directory_exists(undated_folder);
+            return move_to_directory(file, undated_folder);
+        }
+
+        // Generate date-based folder path
+        std::string date_folder = generate_date_folder(target_base_dir, date, granularity);
+
+        // Ensure date folder exists
+        if (!ensure_directory_exists(date_folder)) {
+            return false;
+        }
+
+        // Move file to date folder
+        auto target_dir_path = utf8_to_path(date_folder);
+        std::filesystem::path target = target_dir_path / source_path.filename();
+
+        // Handle name conflicts - files from different folders may have same name
+        int counter = 1;
+        while (std::filesystem::exists(target)) {
+            std::ostringstream new_name;
+            new_name << source_path.stem().string() << "_" << counter << source_path.extension().string();
+            target = target_dir_path / new_name.str();
+            counter++;
+        }
+
+        // Move the file
+        std::filesystem::rename(source_path, target);
+
+        // Track for undo
+        moved_files_[file] = target.string();
+
         return true;
     } catch (const std::filesystem::filesystem_error&) {
         return false;

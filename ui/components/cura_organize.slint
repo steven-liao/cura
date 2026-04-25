@@ -1,0 +1,417 @@
+// Cura Organize Screen
+// Organize photos by date into date-based folder structure
+
+import { CuraTheme } from "../themes/cura_theme.slint";
+import { ScrollView } from "std-widgets.slint";
+
+// Folder list item (reuse pattern from cura_setup.slint)
+component OrganizeFolderItem inherits Rectangle {
+    in property <string> path;
+    callback remove-clicked();
+
+    height: 36px;
+    background: CuraTheme.background-secondary;
+    border-radius: 4px;
+
+    HorizontalLayout {
+        padding: 8px;
+
+        Text {
+            text: path;
+            color: CuraTheme.text;
+            font-size: 12px;
+            vertical-alignment: center;
+            overflow: elide;
+            horizontal-stretch: 1;
+        }
+
+        Rectangle {
+            width: 20px;
+            height: 20px;
+            border-radius: 10px;
+            background: CuraTheme.error;
+
+            Text {
+                text: "X";
+                color: CuraTheme.text;
+                font-size: 12px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            TouchArea {
+                clicked => { root.remove-clicked(); }
+            }
+        }
+    }
+}
+
+// Granularity selector button
+component GranularityButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback clicked();
+
+    width: 70px;
+    height: 28px;
+    background: selected ? CuraTheme.accent : CuraTheme.background-secondary;
+    border-radius: 4px;
+    border-width: selected ? 0px : 1px;
+    border-color: CuraTheme.text-secondary;
+
+    Text {
+        text: label;
+        color: selected ? CuraTheme.text : CuraTheme.text-secondary;
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    TouchArea {
+        clicked => { root.clicked(); }
+    }
+}
+
+// Main organize component
+export component CuraOrganize inherits Rectangle {
+    in property <[string]> source-folders;
+    in property <string> date-granularity: "month";  // "year", "month", "day"
+    in property <int> files-organized: 0;
+    in property <int> total-files: 0;
+    in property <string> current-file: "";
+    in property <bool> organizing: false;
+    in property <bool> can-undo: false;
+    in property <string> target-folder: "";
+
+    callback add-folder-clicked();
+    callback remove-folder-clicked(string);
+    callback set-granularity(string);
+    callback start-organize-clicked();
+    callback cancel-organize-clicked();
+    callback undo-organize-clicked();
+    callback select-target-folder-clicked();
+
+    background: CuraTheme.background;
+
+    VerticalLayout {
+        padding: 24px;
+        spacing: 16px;
+
+        // Header
+        HorizontalLayout {
+            spacing: 16px;
+
+            Text {
+                text: "cura";
+                font-size: 24px;
+                font-weight: 700;
+                color: CuraTheme.accent;
+            }
+
+            Text {
+                text: "Organize by Date";
+                font-size: 16px;
+                color: CuraTheme.text-secondary;
+                vertical-alignment: center;
+            }
+        }
+
+        // Description
+        Text {
+            text: "Organize photos into date-based folder structure (YYYY/MM or YYYY/MM/DD)";
+            color: CuraTheme.text-secondary;
+            font-size: 12px;
+        }
+
+        // Source folder selection
+        Rectangle {
+            height: 150px;
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            VerticalLayout {
+                padding: 12px;
+                spacing: 8px;
+
+                Text {
+                    text: "Select source folders:";
+                    font-size: 12px;
+                    color: CuraTheme.text;
+                }
+
+                ScrollView {
+                    width: 100%;
+                    height: 80px;
+
+                    VerticalLayout {
+                        padding: 4px;
+                        spacing: 4px;
+
+                        for folder in source-folders:
+                            OrganizeFolderItem {
+                                path: folder;
+                                remove-clicked => { root.remove-folder-clicked(folder); }
+                            }
+                    }
+                }
+
+                // Add folder button
+                Rectangle {
+                    height: 32px;
+                    background: CuraTheme.primary;
+                    border-radius: 4px;
+
+                    Text {
+                        text: "+ Add Folder";
+                        color: CuraTheme.text;
+                        font-size: 12px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.add-folder-clicked(); }
+                    }
+                }
+            }
+        }
+
+        // Date granularity selection
+        Rectangle {
+            height: 60px;
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            HorizontalLayout {
+                padding: 12px;
+                spacing: 12px;
+
+                Text {
+                    text: "Granularity:";
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+
+                GranularityButton {
+                    label: "Year";
+                    selected: root.date-granularity == "year";
+                    clicked => { root.set-granularity("year"); }
+                }
+
+                GranularityButton {
+                    label: "Month";
+                    selected: root.date-granularity == "month";
+                    clicked => { root.set-granularity("month"); }
+                }
+
+                GranularityButton {
+                    label: "Day";
+                    selected: root.date-granularity == "day";
+                    clicked => { root.set-granularity("day"); }
+                }
+
+                Text {
+                    text: root.date-granularity == "year" ? "Folders: 2024, 2025..." :
+                          root.date-granularity == "month" ? "Folders: 2024/01, 2024/02..." :
+                          "Folders: 2024/01/15...";
+                    color: CuraTheme.text-secondary;
+                    font-size: 10px;
+                    vertical-alignment: center;
+                    horizontal-stretch: 1;
+                }
+            }
+        }
+
+        // Target folder selection
+        Rectangle {
+            height: 60px;
+            background: CuraTheme.background-secondary;
+            border-radius: 8px;
+
+            HorizontalLayout {
+                padding: 12px;
+                spacing: 12px;
+
+                Text {
+                    text: "Target folder:";
+                    color: CuraTheme.text;
+                    font-size: 12px;
+                    vertical-alignment: center;
+                }
+
+                Rectangle {
+                    horizontal-stretch: 1;
+                    height: 32px;
+                    background: CuraTheme.background;
+                    border-radius: 4px;
+
+                    Text {
+                        text: root.target-folder == "" ? "Click to select..." : root.target-folder;
+                        color: root.target-folder == "" ? CuraTheme.text-secondary : CuraTheme.text;
+                        font-size: 12px;
+                        overflow: elide;
+                        horizontal-alignment: left;
+                        vertical-alignment: center;
+                        x: 8px;
+                    }
+
+                    TouchArea {
+                        clicked => { root.select-target-folder-clicked(); }
+                    }
+                }
+            }
+        }
+
+        // Progress area (shown when organizing)
+        if organizing:
+            Rectangle {
+                height: 80px;
+                background: CuraTheme.background-secondary;
+                border-radius: 8px;
+
+                VerticalLayout {
+                    padding: 12px;
+                    spacing: 8px;
+
+                    HorizontalLayout {
+                        spacing: 12px;
+
+                        Text {
+                            text: "Progress:";
+                            color: CuraTheme.text;
+                            font-size: 12px;
+                            vertical-alignment: center;
+                        }
+
+                        Text {
+                            text: root.files-organized + "/" + root.total-files;
+                            color: CuraTheme.accent;
+                            font-size: 12px;
+                            font-weight: 700;
+                            vertical-alignment: center;
+                        }
+
+                        // Progress bar
+                        Rectangle {
+                            width: 200px;
+                            height: 16px;
+                            background: CuraTheme.background;
+                            border-radius: 4px;
+
+                            Rectangle {
+                                width: parent.width * (root.files-organized / root.total-files);
+                                background: CuraTheme.accent;
+                                border-radius: 4px;
+                            }
+                        }
+                    }
+
+                    Text {
+                        text: root.current-file;
+                        color: CuraTheme.text-secondary;
+                        font-size: 10px;
+                        overflow: elide;
+                    }
+
+                    // Cancel button
+                    Rectangle {
+                        height: 28px;
+                        width: 100px;
+                        background: CuraTheme.error;
+                        border-radius: 4px;
+
+                        Text {
+                            text: "Cancel";
+                            color: CuraTheme.text;
+                            font-size: 12px;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+
+                        TouchArea {
+                            clicked => { root.cancel-organize-clicked(); }
+                        }
+                    }
+                }
+            }
+
+        // Action buttons
+        HorizontalLayout {
+            spacing: 12px;
+
+            // Start organize button
+            Rectangle {
+                horizontal-stretch: 1;
+                height: 44px;
+                background: organizing ? CuraTheme.background-secondary : CuraTheme.accent;
+                border-radius: 8px;
+
+                Text {
+                    text: organizing ? "Organizing..." : "Start Organize";
+                    color: CuraTheme.text;
+                    font-size: 14px;
+                    font-weight: 700;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                TouchArea {
+                    clicked => {
+                        if !organizing {
+                            root.start-organize-clicked();
+                        }
+                    }
+                }
+            }
+
+            // Undo button
+            if can-undo:
+                Rectangle {
+                    width: 100px;
+                    height: 44px;
+                    background: CuraTheme.primary;
+                    border-radius: 8px;
+
+                    Text {
+                        text: "Undo";
+                        color: CuraTheme.text;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+
+                    TouchArea {
+                        clicked => { root.undo-organize-clicked(); }
+                    }
+                }
+        }
+
+        // Results info (shown when complete and files were organized)
+        if !organizing && files-organized > 0:
+            Rectangle {
+                height: 60px;
+                background: CuraTheme.background-secondary;
+                border-radius: 8px;
+
+                HorizontalLayout {
+                    padding: 16px;
+                    spacing: 24px;
+
+                    Text {
+                        text: "Organized " + root.files-organized + " files";
+                        color: CuraTheme.success;
+                        font-size: 14px;
+                        vertical-alignment: center;
+                    }
+
+                    Text {
+                        text: "into date-based folders";
+                        color: CuraTheme.text-secondary;
+                        font-size: 12px;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+    }
+}

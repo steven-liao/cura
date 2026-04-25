@@ -37,7 +37,13 @@
       "Bash(taskkill /f /pid 2304)",
       "Bash(taskkill //f //pid 2304)",
       "Bash(taskkill -f -pid 2304)",
-      "Bash(taskkill //f //im cura.exe)"
+      "Bash(taskkill //f //im cura.exe)",
+      "Bash(ctest --output-on-failure)",
+      "Bash(ctest --test-dir build --output-on-failure -C Release)",
+      "Bash(cmake -B build \"-DCMAKE_PREFIX_PATH=C:/Program Files/Slint-cpp 1.15.1\")",
+      "Bash(taskkill //F //IM cura.exe)",
+      "Bash(cmake -B build \"-DCMAKE_PREFIX_PATH=C:/Program Files/Slint-cpp 1.15.1\" -DCURA_BUILD_TESTS=ON)",
+      "Bash(ctest --test-dir d:/cura/build --output-on-failure -C Release)"
     ],
     "additionalDirectories": [
       "C:\\Program Files\\Slint-cpp 1.15.1\\lib"

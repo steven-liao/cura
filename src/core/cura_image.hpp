@@ -23,6 +23,25 @@ struct ImageData {
 };
 
 /**
+ * @brief Date extracted from image (EXIF or file time)
+ */
+struct ImageDate {
+    int year;
+    int month;
+    int day;
+    bool valid;
+};
+
+/**
+ * @brief Extract date from image file
+ * @param file_path Path to image file
+ * @return ImageDate structure with year/month/day
+ *
+ * Priority: EXIF DateTimeOriginal (0x9003) > EXIF DateTime (0x0132) > file modification time
+ */
+ImageDate extract_image_date(const std::string& file_path);
+
+/**
  * @brief Image processor for decoding and resizing
  */
 class CuraImageProcessor {
