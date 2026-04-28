@@ -331,6 +331,11 @@ export component CuraReview inherits Rectangle {
     };
     property <DuplicateGroupData> popup-data: root.empty-popup-data;
 
+    // Confirmation dialog state
+    property <int> confirm-delete-group-id: -1;
+    property <int> confirm-delete-count: 0;
+    property <bool> show-confirm-dialog: confirm-delete-group-id >= 0;
+
     background: CuraTheme.background;
 
     VerticalLayout {
@@ -394,7 +399,13 @@ export component CuraReview inherits Rectangle {
                             group-id: idx;
                             group-data: group-data;
                             select-for-delete(id) => {
-                                root.handle-duplicates-clicked([id], "delete", "");
+                                // Close popup if open, then show confirm dialog
+                                if root.active-popup-id >= 0 {
+                                    root.active-popup-id = -1;
+                                    root.popup-data = root.empty-popup-data;
+                                }
+                                root.confirm-delete-group-id = id;
+                                root.confirm-delete-count = group-data.files.length - 1;
                             }
                             select-for-move(id) => {
                                 root.handle-duplicates-clicked([id], "move", "");
@@ -485,4 +496,97 @@ export component CuraReview inherits Rectangle {
             }
         }
     }
+
+    // Confirmation dialog overlay
+    if show-confirm-dialog:
+        Rectangle {
+            width: root.width;
+            height: root.height;
+            background: #00000080;
+
+            // Dialog box (centered)
+            Rectangle {
+                width: 320px;
+                height: 150px;
+                x: (parent.width - 320px) / 2;
+                y: (parent.height - 150px) / 2;
+                background: CuraTheme.background-secondary;
+                border-radius: 8px;
+                border-width: 1px;
+                border-color: CuraTheme.error;
+
+                VerticalLayout {
+                    padding: 16px;
+                    spacing: 8px;
+
+                    Text {
+                        text: "Confirm Delete";
+                        font-size: 16px;
+                        font-weight: 700;
+                        color: CuraTheme.error;
+                    }
+
+                    Text {
+                        text: "Delete " + root.confirm-delete-count + " duplicate files? This action cannot be undone.";
+                        font-size: 12px;
+                        color: CuraTheme.text;
+                        wrap: word-wrap;
+                    }
+
+                    HorizontalLayout {
+                        spacing: 8px;
+                        alignment: end;
+                        vertical-stretch: 1;
+
+                        Rectangle {
+                            width: 90px;
+                            height: 32px;
+                            background: transparent;
+                            border-radius: 4px;
+                            border-width: 1px;
+                            border-color: CuraTheme.text-secondary;
+
+                            Text {
+                                text: "Cancel";
+                                color: CuraTheme.text-secondary;
+                                font-size: 12px;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            TouchArea {
+                                clicked => {
+                                    root.confirm-delete-group-id = -1;
+                                    root.confirm-delete-count = 0;
+                                }
+                            }
+                        }
+
+                        Rectangle {
+                            width: 90px;
+                            height: 32px;
+                            background: CuraTheme.error;
+                            border-radius: 4px;
+
+                            Text {
+                                text: "Delete";
+                                color: CuraTheme.text;
+                                font-size: 12px;
+                                font-weight: 700;
+                                horizontal-alignment: center;
+                                vertical-alignment: center;
+                            }
+
+                            TouchArea {
+                                clicked => {
+                                    root.handle-duplicates-clicked([root.confirm-delete-group-id], "delete", "");
+                                    root.confirm-delete-group-id = -1;
+                                    root.confirm-delete-count = 0;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
 }

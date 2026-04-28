@@ -237,6 +237,7 @@ public:
   - Position calculated based on card's grid position (row/col)
   - Size: 320px × 150px with scrollable file list and X close button
   - Click "+N more" again or X button to close; click on different card to switch
+- **Delete Confirmation Dialog:** Clicking Delete shows a modal confirm dialog (semi-transparent overlay + centered dialog) with file count, Cancel and Delete buttons, preventing accidental deletions
 - Undo support for deletions
 
 #### 4. Organize (`cura_organize.slint`)
